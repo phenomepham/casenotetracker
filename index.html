@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>30-Day Contact Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; }
+      table { font-size: 11px; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900">
+  <div class="max-w-7xl mx-auto p-4 md:p-6">
+    <header class="mb-5">
+      <h1 class="text-2xl md:text-3xl font-bold">30-Day Participant Contact Tracker</h1>
+      <p class="text-sm text-slate-600 mt-1">Track last contact/case note dates, identify participants close to 30 days, and flag overdue participants.</p>
+    </header>
+
+    <section class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5" id="summaryCards"></section>
+
+    <section class="bg-white rounded-2xl shadow p-4 mb-5 no-print">
+      <h2 class="text-lg font-semibold mb-3">Add / Update Participant</h2>
+      <div class="grid md:grid-cols-6 gap-3">
+        <input id="pName" class="border rounded-lg p-2 md:col-span-2" placeholder="Participant name" />
+        <input id="pProgram" class="border rounded-lg p-2" placeholder="Program" />
+        <input id="pNavigator" class="border rounded-lg p-2" placeholder="Career Navigator" />
+        <select id="pStatus" class="border rounded-lg p-2">
+          <option>Active</option>
+          <option>Training</option>
+          <option>WEX</option>
+          <option>Follow-Up</option>
+          <option>Closed</option>
+        </select>
+        <button onclick="saveParticipant()" class="bg-blue-700 text-white rounded-lg px-4 py-2 font-semibold">Save Participant</button>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow p-4 mb-5 no-print">
+      <h2 class="text-lg font-semibold mb-3">Log Contact / Case Note</h2>
+      <div class="grid md:grid-cols-7 gap-3">
+        <select id="logParticipant" class="border rounded-lg p-2 md:col-span-2"></select>
+        <input id="logDate" type="date" class="border rounded-lg p-2" />
+        <select id="logMethod" class="border rounded-lg p-2">
+          <option>Phone</option>
+          <option>Text</option>
+          <option>Email</option>
+          <option>In Person</option>
+          <option>Virtual</option>
+          <option>Other</option>
+        </select>
+        <select id="logCaseNote" class="border rounded-lg p-2">
+          <option>Yes</option>
+          <option>No</option>
+          <option>Pending</option>
+        </select>
+        <input id="logNote" class="border rounded-lg p-2" placeholder="Brief note" />
+        <button onclick="addContactLog()" class="bg-emerald-700 text-white rounded-lg px-4 py-2 font-semibold">Add Contact</button>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow p-4 mb-5 no-print">
+      <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+        <div class="flex flex-col md:flex-row gap-3">
+          <input id="searchBox" oninput="render()" class="border rounded-lg p-2" placeholder="Search participant" />
+          <select id="statusFilter" onchange="render()" class="border rounded-lg p-2">
+            <option value="all">All contact statuses</option>
+            <option value="Current">Current</option>
+            <option value="Close">Close to 30 Days</option>
+            <option value="Overdue">Over 30 Days</option>
+            <option value="No Contact Date">No Contact Date</option>
+          </select>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          <button onclick="exportJSON()" class="border rounded-lg px-3 py-2">Export JSON</button>
+          <label class="border rounded-lg px-3 py-2 cursor-pointer">
+            Import JSON
+            <input type="file" accept="application/json" onchange="importJSON(event)" class="hidden" />
+          </label>
+          <button onclick="exportCSV()" class="border rounded-lg px-3 py-2">Export CSV</button>
+          <button onclick="window.print()" class="border rounded-lg px-3 py-2">Print</button>
+          <button onclick="clearAllData()" class="border border-red-300 text-red-700 rounded-lg px-3 py-2">Clear Data</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow overflow-hidden mb-5">
+      <div class="p-4 border-b flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Participant Tracker</h2>
+        <p class="text-sm text-slate-500">Yellow = 25–29 days. Red = 30+ days.</p>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-800 text-white">
+            <tr>
+              <th class="text-left p-3">Participant</th>
+              <th class="text-left p-3">Program</th>
+              <th class="text-left p-3">Career Navigator</th>
+              <th class="text-left p-3">Participant Status</th>
+              <th class="text-left p-3">Last Contact</th>
+              <th class="text-left p-3">Days Since</th>
+              <th class="text-left p-3">Next Due</th>
+              <th class="text-left p-3">Contact Status</th>
+              <th class="text-left p-3">Last Method</th>
+              <th class="text-left p-3 no-print">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="participantRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow overflow-hidden">
+      <div class="p-4 border-b">
+        <h2 class="text-lg font-semibold">Contact Log</h2>
+      </div>
+
+      <div class="overflow-x-auto max-h-96 overflow-y-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-200 sticky top-0">
+            <tr>
+              <th class="text-left p-3">Date</th>
+              <th class="text-left p-3">Participant</th>
+              <th class="text-left p-3">Method</th>
+              <th class="text-left p-3">Case Note Entered?</th>
+              <th class="text-left p-3">Note</th>
+              <th class="text-left p-3 no-print">Action</th>
+            </tr>
+          </thead>
+          <tbody id="logRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+<script>
+const STORAGE_KEY = 'cn_30_day_contact_tracker_v1';
+let data = loadData();
+
+document.getElementById('logDate').valueAsDate = new Date();
+
+function loadData() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) return JSON.parse(saved);
+  return { participants: [], logs: [] };
+}
+
+function persist() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function todayStart() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function parseDate(value) {
+  if (!value) return null;
+  const d = new Date(value + 'T00:00:00');
+  return isNaN(d) ? null : d;
+}
+
+function formatDate(value) {
+  if (!value) return '';
+  const d = parseDate(value);
+  return d ? d.toLocaleDateString() : '';
+}
+
+function daysSince(value) {
+  const d = parseDate(value);
+  if (!d) return null;
+  return Math.floor((todayStart() - d) / 86400000);
+}
+
+function addDays(value, days) {
+  const d = parseDate(value);
+  if (!d) return '';
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function latestLogForParticipant(name) {
+  const logs = data.logs
+    .filter(l => l.participant === name && l.date)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  return logs[0] || null;
+}
+
+function contactStatus(lastDate) {
+  const days = daysSince(lastDate);
+
+  if (days === null) return 'No Contact Date';
+  if (days >= 30) return 'Overdue';
+  if (days >= 25) return 'Close';
+
+  return 'Current';
+}
+
+function rowClass(status) {
+  if (status === 'Overdue') return 'bg-red-100';
+  if (status === 'Close') return 'bg-yellow-100';
+  if (status === 'No Contact Date') return 'bg-blue-50';
+  return '';
+}
+
+function saveParticipant() {
+  const name = document.getElementById('pName').value.trim();
+
+  if (!name) {
+    alert('Participant name is required.');
+    return;
+  }
+
+  const existing = data.participants.find(
+    p => p.name.toLowerCase() === name.toLowerCase()
+  );
+
+  const record = {
+    name,
+    program: document.getElementById('pProgram').value.trim(),
+    navigator: document.getElementById('pNavigator').value.trim(),
+    status: document.getElementById('pStatus').value
+  };
+
+  if (existing) {
+    Object.assign(existing, record);
+  } else {
+    data.participants.push(record);
+  }
+
+  ['pName', 'pProgram', 'pNavigator'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+
+  persist();
+  render();
+}
+
+function addContactLog() {
+  const participant = document.getElementById('logParticipant').value;
+  const date = document.getElementById('logDate').value;
+
+  if (!participant || !date) {
+    alert('Participant and date are required.');
+    return;
+  }
+
+  data.logs.push({
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    participant,
+    date,
+    method: document.getElementById('logMethod').value,
+    caseNote: document.getElementById('logCaseNote').value,
+    note: document.getElementById('logNote').value.trim()
+  });
+
+  document.getElementById('logNote').value = '';
+  document.getElementById('logDate').valueAsDate = new Date();
+
+  persist();
+  render();
+}
+
+function deleteParticipant(name) {
+  if (!confirm('Delete this participant and their contact log entries?')) return;
+
+  data.participants = data.participants.filter(p => p.name !== name);
+  data.logs = data.logs.filter(l => l.participant !== name);
+
+  persist();
+  render();
+}
+
+function deleteLog(id) {
+  data.logs = data.logs.filter(l => l.id !== id);
+
+  persist();
+  render();
+}
+
+function updateParticipantDropdown() {
+  const select = document.getElementById('logParticipant');
+
+  select.innerHTML = data.participants
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`)
+    .join('');
+}
+
+function renderSummary() {
+  const enriched = data.participants.map(p => {
+    const latest = latestLogForParticipant(p.name);
+    return contactStatus(latest?.date);
+  });
+
+  const cards = [
+    ['Total', data.participants.length, 'bg-slate-800 text-white'],
+    ['Current', enriched.filter(s => s === 'Current').length, 'bg-emerald-700 text-white'],
+    ['Close', enriched.filter(s => s === 'Close').length, 'bg-yellow-500 text-slate-900'],
+    ['Overdue', enriched.filter(s => s === 'Overdue').length, 'bg-red-700 text-white'],
+    ['No Date', enriched.filter(s => s === 'No Contact Date').length, 'bg-blue-700 text-white']
+  ];
+
+  document.getElementById('summaryCards').innerHTML = cards.map(c => `
+    <div class="rounded-2xl shadow p-4 ${c[2]}">
+      <div class="text-sm opacity-90">${c[0]}</div>
+      <div class="text-3xl font-bold">${c[1]}</div>
+    </div>
+  `).join('');
+}
+
+function renderParticipants() {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  const f = document.getElementById('statusFilter').value;
+
+  const rows = data.participants
+    .map(p => {
+      const latest = latestLogForParticipant(p.name);
+      const lastDate = latest?.date || '';
+      const days = daysSince(lastDate);
+      const status = contactStatus(lastDate);
+
+      return {
+        ...p,
+        latest,
+        lastDate,
+        days,
+        contactStatus: status,
+        nextDue: addDays(lastDate, 30)
+      };
+    })
+    .filter(p => {
+      return !q ||
+        p.name.toLowerCase().includes(q) ||
+        (p.navigator || '').toLowerCase().includes(q);
+    })
+    .filter(p => f === 'all' || p.contactStatus === f)
+    .sort((a, b) => {
+      const rank = {
+        'Overdue': 0,
+        'Close': 1,
+        'No Contact Date': 2,
+        'Current': 3
+      };
+
+      return rank[a.contactStatus] - rank[b.contactStatus] ||
+        a.name.localeCompare(b.name);
+    });
+
+  document.getElementById('participantRows').innerHTML = rows.map(p => `
+    <tr class="border-b ${rowClass(p.contactStatus)}">
+      <td class="p-3 font-semibold">${escapeHtml(p.name)}</td>
+      <td class="p-3">${escapeHtml(p.program || '')}</td>
+      <td class="p-3">${escapeHtml(p.navigator || '')}</td>
+      <td class="p-3">${escapeHtml(p.status || '')}</td>
+      <td class="p-3">${formatDate(p.lastDate)}</td>
+      <td class="p-3 font-semibold">${p.days === null ? '' : p.days}</td>
+      <td class="p-3">${formatDate(p.nextDue)}</td>
+      <td class="p-3 font-bold">${p.contactStatus}</td>
+      <td class="p-3">${escapeHtml(p.latest?.method || '')}</td>
+      <td class="p-3 no-print">
+        <button onclick="deleteParticipant('${escapeAttr(p.name)}')" class="text-red-700 underline">Delete</button>
+      </td>
+    </tr>
+  `).join('') || `
+    <tr>
+      <td colspan="10" class="p-4 text-slate-500">No participants entered.</td>
+    </tr>
+  `;
+}
+
+function renderLogs() {
+  const rows = [...data.logs].sort((a, b) => b.date.localeCompare(a.date));
+
+  document.getElementById('logRows').innerHTML = rows.map(l => `
+    <tr class="border-b">
+      <td class="p-3">${formatDate(l.date)}</td>
+      <td class="p-3 font-semibold">${escapeHtml(l.participant)}</td>
+      <td class="p-3">${escapeHtml(l.method)}</td>
+      <td class="p-3">${escapeHtml(l.caseNote)}</td>
+      <td class="p-3">${escapeHtml(l.note || '')}</td>
+      <td class="p-3 no-print">
+        <button onclick="deleteLog('${escapeAttr(l.id)}')" class="text-red-700 underline">Delete</button>
+      </td>
+    </tr>
+  `).join('') || `
+    <tr>
+      <td colspan="6" class="p-4 text-slate-500">No contact entries yet.</td>
+    </tr>
+  `;
+}
+
+function exportJSON() {
+  downloadFile(
+    '30-day-contact-tracker-data.json',
+    JSON.stringify(data, null, 2),
+    'application/json'
+  );
+}
+
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    const imported = JSON.parse(reader.result);
+
+    if (!imported.participants || !imported.logs) {
+      alert('Invalid file.');
+      return;
+    }
+
+    data = imported;
+    persist();
+    render();
+  };
+
+  reader.readAsText(file);
+}
+
+function exportCSV() {
+  const header = [
+    'Participant',
+    'Program',
+    'Career Navigator',
+    'Participant Status',
+    'Last Contact',
+    'Days Since',
+    'Next Due',
+    'Contact Status',
+    'Last Method'
+  ];
+
+  const lines = [header];
+
+  data.participants.forEach(p => {
+    const latest = latestLogForParticipant(p.name);
+    const lastDate = latest?.date || '';
+
+    lines.push([
+      p.name,
+      p.program,
+      p.navigator,
+      p.status,
+      lastDate,
+      daysSince(lastDate) ?? '',
+      addDays(lastDate, 30),
+      contactStatus(lastDate),
+      latest?.method || ''
+    ]);
+  });
+
+  const csv = lines
+    .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+
+  downloadFile('30-day-contact-tracker.csv', csv, 'text/csv');
+}
+
+function downloadFile(filename, content, type) {
+  const a = document.createElement('a');
+
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = filename;
+  a.click();
+
+  URL.revokeObjectURL(a.href);
+}
+
+function clearAllData() {
+  if (!confirm('Clear all tracker data from this browser?')) return;
+
+  data = { participants: [], logs: [] };
+
+  persist();
+  render();
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#039;',
+    '"': '&quot;'
+  }[c]));
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, '&#096;');
+}
+
+function render() {
+  updateParticipantDropdown();
+  renderSummary();
+  renderParticipants();
+  renderLogs();
+}
+
+render();
+</script>
+</body>
+</html>
