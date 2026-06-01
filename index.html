@@ -4,7 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>30-Day Contact Tracker</title>
+
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Excel import library -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
   <style>
     @media print {
       .no-print { display: none !important; }
@@ -13,21 +18,50 @@
     }
   </style>
 </head>
+
 <body class="bg-slate-100 text-slate-900">
   <div class="max-w-7xl mx-auto p-4 md:p-6">
     <header class="mb-5">
       <h1 class="text-2xl md:text-3xl font-bold">30-Day Participant Contact Tracker</h1>
-      <p class="text-sm text-slate-600 mt-1">Track last contact/case note dates, identify participants close to 30 days, and flag overdue participants.</p>
+      <p class="text-sm text-slate-600 mt-1">
+        Track last case note dates, identify participants close to 30 days, and flag overdue participants.
+      </p>
     </header>
 
     <section class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5" id="summaryCards"></section>
 
     <section class="bg-white rounded-2xl shadow p-4 mb-5 no-print">
+      <h2 class="text-lg font-semibold mb-3">Import Participants from Excel</h2>
+
+      <div class="grid md:grid-cols-4 gap-3 items-center">
+        <label class="border rounded-lg px-3 py-2 cursor-pointer bg-slate-50 hover:bg-slate-100">
+          Import Excel File
+          <input type="file" accept=".xlsx,.xls" onchange="importExcel(event)" class="hidden" />
+        </label>
+
+        <div class="md:col-span-3 text-sm text-slate-600">
+          The tool will look for these columns:
+          <strong>State ID</strong>,
+          <strong>Last, First Name</strong>,
+          <strong>Participation Date</strong>,
+          <strong>Assigned Staff</strong>,
+          <strong>Last Case Note Date</strong>,
+          and <strong>Days Since Last Case Note</strong>.
+        </div>
+      </div>
+
+      <div id="importResult" class="text-sm mt-3 text-slate-700"></div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow p-4 mb-5 no-print">
       <h2 class="text-lg font-semibold mb-3">Add / Update Participant</h2>
-      <div class="grid md:grid-cols-6 gap-3">
+
+      <div class="grid md:grid-cols-7 gap-3">
+        <input id="pStateId" class="border rounded-lg p-2" placeholder="State ID" />
         <input id="pName" class="border rounded-lg p-2 md:col-span-2" placeholder="Participant name" />
         <input id="pProgram" class="border rounded-lg p-2" placeholder="Program" />
         <input id="pNavigator" class="border rounded-lg p-2" placeholder="Career Navigator" />
+
         <select id="pStatus" class="border rounded-lg p-2">
           <option>Active</option>
           <option>Training</option>
@@ -35,52 +69,68 @@
           <option>Follow-Up</option>
           <option>Closed</option>
         </select>
-        <button onclick="saveParticipant()" class="bg-blue-700 text-white rounded-lg px-4 py-2 font-semibold">Save Participant</button>
+
+        <button onclick="saveParticipant()" class="bg-blue-700 text-white rounded-lg px-4 py-2 font-semibold">
+          Save Participant
+        </button>
       </div>
     </section>
 
     <section class="bg-white rounded-2xl shadow p-4 mb-5 no-print">
       <h2 class="text-lg font-semibold mb-3">Log Contact / Case Note</h2>
+
       <div class="grid md:grid-cols-7 gap-3">
         <select id="logParticipant" class="border rounded-lg p-2 md:col-span-2"></select>
+
         <input id="logDate" type="date" class="border rounded-lg p-2" />
+
         <select id="logMethod" class="border rounded-lg p-2">
+          <option>Case Note</option>
           <option>Phone</option>
           <option>Text</option>
           <option>Email</option>
           <option>In Person</option>
           <option>Virtual</option>
+          <option>Imported Excel</option>
           <option>Other</option>
         </select>
+
         <select id="logCaseNote" class="border rounded-lg p-2">
           <option>Yes</option>
           <option>No</option>
           <option>Pending</option>
         </select>
+
         <input id="logNote" class="border rounded-lg p-2" placeholder="Brief note" />
-        <button onclick="addContactLog()" class="bg-emerald-700 text-white rounded-lg px-4 py-2 font-semibold">Add Contact</button>
+
+        <button onclick="addContactLog()" class="bg-emerald-700 text-white rounded-lg px-4 py-2 font-semibold">
+          Add Contact
+        </button>
       </div>
     </section>
 
     <section class="bg-white rounded-2xl shadow p-4 mb-5 no-print">
       <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
         <div class="flex flex-col md:flex-row gap-3">
-          <input id="searchBox" oninput="render()" class="border rounded-lg p-2" placeholder="Search participant" />
+          <input id="searchBox" oninput="render()" class="border rounded-lg p-2" placeholder="Search participant, State ID, or staff" />
+
           <select id="statusFilter" onchange="render()" class="border rounded-lg p-2">
             <option value="all">All contact statuses</option>
             <option value="Current">Current</option>
             <option value="Close">Close to 30 Days</option>
             <option value="Overdue">Over 30 Days</option>
-            <option value="No Contact Date">No Contact Date</option>
+            <option value="No Case Note Date">No Case Note Date</option>
           </select>
         </div>
 
         <div class="flex flex-wrap gap-2">
           <button onclick="exportJSON()" class="border rounded-lg px-3 py-2">Export JSON</button>
+
           <label class="border rounded-lg px-3 py-2 cursor-pointer">
             Import JSON
             <input type="file" accept="application/json" onchange="importJSON(event)" class="hidden" />
           </label>
+
           <button onclick="exportCSV()" class="border rounded-lg px-3 py-2">Export CSV</button>
           <button onclick="window.print()" class="border rounded-lg px-3 py-2">Print</button>
           <button onclick="clearAllData()" class="border border-red-300 text-red-700 rounded-lg px-3 py-2">Clear Data</button>
@@ -98,11 +148,12 @@
         <table class="w-full text-sm">
           <thead class="bg-slate-800 text-white">
             <tr>
+              <th class="text-left p-3">State ID</th>
               <th class="text-left p-3">Participant</th>
-              <th class="text-left p-3">Program</th>
-              <th class="text-left p-3">Career Navigator</th>
+              <th class="text-left p-3">Participation Date</th>
+              <th class="text-left p-3">Assigned Staff</th>
               <th class="text-left p-3">Participant Status</th>
-              <th class="text-left p-3">Last Contact</th>
+              <th class="text-left p-3">Last Case Note Date</th>
               <th class="text-left p-3">Days Since</th>
               <th class="text-left p-3">Next Due</th>
               <th class="text-left p-3">Contact Status</th>
@@ -110,6 +161,7 @@
               <th class="text-left p-3 no-print">Actions</th>
             </tr>
           </thead>
+
           <tbody id="participantRows"></tbody>
         </table>
       </div>
@@ -117,7 +169,7 @@
 
     <section class="bg-white rounded-2xl shadow overflow-hidden">
       <div class="p-4 border-b">
-        <h2 class="text-lg font-semibold">Contact Log</h2>
+        <h2 class="text-lg font-semibold">Contact / Case Note Log</h2>
       </div>
 
       <div class="overflow-x-auto max-h-96 overflow-y-auto">
@@ -132,6 +184,7 @@
               <th class="text-left p-3 no-print">Action</th>
             </tr>
           </thead>
+
           <tbody id="logRows"></tbody>
         </table>
       </div>
@@ -139,14 +192,22 @@
   </div>
 
 <script>
-const STORAGE_KEY = 'cn_30_day_contact_tracker_v1';
+const STORAGE_KEY = 'cn_30_day_contact_tracker_v2';
 let data = loadData();
 
 document.getElementById('logDate').valueAsDate = new Date();
 
 function loadData() {
   const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved) return JSON.parse(saved);
+
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch {
+      return { participants: [], logs: [] };
+    }
+  }
+
   return { participants: [], logs: [] };
 }
 
@@ -162,8 +223,40 @@ function todayStart() {
 
 function parseDate(value) {
   if (!value) return null;
-  const d = new Date(value + 'T00:00:00');
-  return isNaN(d) ? null : d;
+
+  if (value instanceof Date && !isNaN(value)) {
+    value.setHours(0, 0, 0, 0);
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (!parsed) return null;
+    return new Date(parsed.y, parsed.m - 1, parsed.d);
+  }
+
+  const cleaned = String(value).trim();
+
+  if (!cleaned) return null;
+
+  const direct = new Date(cleaned);
+  if (!isNaN(direct)) {
+    direct.setHours(0, 0, 0, 0);
+    return direct;
+  }
+
+  const parts = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (parts) {
+    return new Date(Number(parts[3]), Number(parts[1]) - 1, Number(parts[2]));
+  }
+
+  return null;
+}
+
+function toISODate(value) {
+  const d = parseDate(value);
+  if (!d) return '';
+  return d.toISOString().slice(0, 10);
 }
 
 function formatDate(value) {
@@ -185,18 +278,42 @@ function addDays(value, days) {
   return d.toISOString().slice(0, 10);
 }
 
-function latestLogForParticipant(name) {
+function normalizeHeader(value) {
+  return String(value || '')
+    .replace(/\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function getValueByHeader(row, headerMap, possibleNames) {
+  for (const name of possibleNames) {
+    const key = normalizeHeader(name);
+    if (headerMap[key] !== undefined) {
+      return row[headerMap[key]];
+    }
+  }
+
+  return '';
+}
+
+function latestLogForParticipant(participant) {
   const logs = data.logs
-    .filter(l => l.participant === name && l.date)
+    .filter(l => sameParticipant(l.participant, participant))
+    .filter(l => l.date)
     .sort((a, b) => b.date.localeCompare(a.date));
 
   return logs[0] || null;
 }
 
+function sameParticipant(a, b) {
+  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+}
+
 function contactStatus(lastDate) {
   const days = daysSince(lastDate);
 
-  if (days === null) return 'No Contact Date';
+  if (days === null) return 'No Case Note Date';
   if (days >= 30) return 'Overdue';
   if (days >= 25) return 'Close';
 
@@ -206,11 +323,12 @@ function contactStatus(lastDate) {
 function rowClass(status) {
   if (status === 'Overdue') return 'bg-red-100';
   if (status === 'Close') return 'bg-yellow-100';
-  if (status === 'No Contact Date') return 'bg-blue-50';
+  if (status === 'No Case Note Date') return 'bg-blue-50';
   return '';
 }
 
 function saveParticipant() {
+  const stateId = document.getElementById('pStateId').value.trim();
   const name = document.getElementById('pName').value.trim();
 
   if (!name) {
@@ -218,14 +336,14 @@ function saveParticipant() {
     return;
   }
 
-  const existing = data.participants.find(
-    p => p.name.toLowerCase() === name.toLowerCase()
-  );
+  const existing = findParticipant(stateId, name);
 
   const record = {
+    stateId,
     name,
     program: document.getElementById('pProgram').value.trim(),
     navigator: document.getElementById('pNavigator').value.trim(),
+    participationDate: existing?.participationDate || '',
     status: document.getElementById('pStatus').value
   };
 
@@ -235,12 +353,21 @@ function saveParticipant() {
     data.participants.push(record);
   }
 
-  ['pName', 'pProgram', 'pNavigator'].forEach(id => {
+  ['pStateId', 'pName', 'pProgram', 'pNavigator'].forEach(id => {
     document.getElementById(id).value = '';
   });
 
   persist();
   render();
+}
+
+function findParticipant(stateId, name) {
+  if (stateId) {
+    const byStateId = data.participants.find(p => String(p.stateId || '').trim() === String(stateId).trim());
+    if (byStateId) return byStateId;
+  }
+
+  return data.participants.find(p => sameParticipant(p.name, name));
 }
 
 function addContactLog() {
@@ -252,8 +379,7 @@ function addContactLog() {
     return;
   }
 
-  data.logs.push({
-    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+  upsertLog({
     participant,
     date,
     method: document.getElementById('logMethod').value,
@@ -268,11 +394,180 @@ function addContactLog() {
   render();
 }
 
-function deleteParticipant(name) {
+function upsertLog(log) {
+  const existing = data.logs.find(l =>
+    sameParticipant(l.participant, log.participant) &&
+    l.date === log.date &&
+    l.method === log.method
+  );
+
+  if (existing) {
+    Object.assign(existing, log);
+  } else {
+    data.logs.push({
+      id: createId(),
+      ...log
+    });
+  }
+}
+
+function createId() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  return String(Date.now()) + String(Math.random()).slice(2);
+}
+
+function importExcel(event) {
+  const file = event.target.files[0];
+
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    try {
+      const workbook = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      const firstSheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+      if (!rows.length) {
+        alert('No rows found in the Excel file.');
+        return;
+      }
+
+      let headerRowIndex = findHeaderRow(rows);
+
+      if (headerRowIndex === -1) {
+        alert('Could not find the required Excel headers.');
+        return;
+      }
+
+      const headers = rows[headerRowIndex].map(normalizeHeader);
+      const headerMap = {};
+
+      headers.forEach((header, index) => {
+        if (header) headerMap[header] = index;
+      });
+
+      let added = 0;
+      let updated = 0;
+      let skipped = 0;
+
+      for (let i = headerRowIndex + 1; i < rows.length; i++) {
+        const row = rows[i];
+
+        const stateId = cleanText(getValueByHeader(row, headerMap, [
+          'State ID'
+        ]));
+
+        const name = cleanText(getValueByHeader(row, headerMap, [
+          'Last, First Name',
+          'Last,First Name',
+          'Name',
+          'Participant'
+        ]));
+
+        const participationDate = toISODate(getValueByHeader(row, headerMap, [
+          'Participation Date'
+        ]));
+
+        const assignedStaff = cleanText(getValueByHeader(row, headerMap, [
+          'Assigned Staff'
+        ]));
+
+        const lastCaseNoteDate = toISODate(getValueByHeader(row, headerMap, [
+          'Last Case Note Date',
+          'Last Case Note Date',
+          'Last Case Note'
+        ]));
+
+        const importedDaysSince = cleanText(getValueByHeader(row, headerMap, [
+          'Days Since Last Case Note',
+          'Days Since Last Case Note',
+          'Days Since'
+        ]));
+
+        if (!stateId && !name) {
+          skipped++;
+          continue;
+        }
+
+        const existing = findParticipant(stateId, name);
+
+        const participantRecord = {
+          stateId,
+          name,
+          program: existing?.program || '',
+          navigator: assignedStaff || existing?.navigator || '',
+          participationDate,
+          status: existing?.status || 'Active',
+          importedDaysSince
+        };
+
+        if (existing) {
+          Object.assign(existing, participantRecord);
+          updated++;
+        } else {
+          data.participants.push(participantRecord);
+          added++;
+        }
+
+        if (name && lastCaseNoteDate) {
+          upsertLog({
+            participant: name,
+            date: lastCaseNoteDate,
+            method: 'Imported Excel',
+            caseNote: 'Yes',
+            note: 'Imported from Excel Days Since Last Note report.'
+          });
+        }
+      }
+
+      persist();
+      render();
+
+      document.getElementById('importResult').innerHTML =
+        `<strong>Excel import complete.</strong> Added: ${added}. Updated: ${updated}. Skipped blank rows: ${skipped}.`;
+
+      event.target.value = '';
+    } catch (error) {
+      console.error(error);
+      alert('The Excel file could not be imported. Check that the file has the expected columns.');
+    }
+  };
+
+  reader.readAsArrayBuffer(file);
+}
+
+function findHeaderRow(rows) {
+  for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    const normalized = rows[i].map(normalizeHeader);
+
+    const hasStateId = normalized.includes('state id');
+    const hasName = normalized.includes('last, first name') || normalized.includes('last,first name');
+    const hasLastCaseNote = normalized.some(h => h.includes('last') && h.includes('case note') && h.includes('date'));
+
+    if (hasStateId && hasName && hasLastCaseNote) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+function cleanText(value) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function deleteParticipant(name, stateId) {
   if (!confirm('Delete this participant and their contact log entries?')) return;
 
-  data.participants = data.participants.filter(p => p.name !== name);
-  data.logs = data.logs.filter(l => l.participant !== name);
+  data.participants = data.participants.filter(p => {
+    if (stateId) return String(p.stateId || '') !== String(stateId);
+    return !sameParticipant(p.name, name);
+  });
+
+  data.logs = data.logs.filter(l => !sameParticipant(l.participant, name));
 
   persist();
   render();
@@ -280,7 +575,6 @@ function deleteParticipant(name) {
 
 function deleteLog(id) {
   data.logs = data.logs.filter(l => l.id !== id);
-
   persist();
   render();
 }
@@ -305,7 +599,7 @@ function renderSummary() {
     ['Current', enriched.filter(s => s === 'Current').length, 'bg-emerald-700 text-white'],
     ['Close', enriched.filter(s => s === 'Close').length, 'bg-yellow-500 text-slate-900'],
     ['Overdue', enriched.filter(s => s === 'Overdue').length, 'bg-red-700 text-white'],
-    ['No Date', enriched.filter(s => s === 'No Contact Date').length, 'bg-blue-700 text-white']
+    ['No Date', enriched.filter(s => s === 'No Case Note Date').length, 'bg-blue-700 text-white']
   ];
 
   document.getElementById('summaryCards').innerHTML = cards.map(c => `
@@ -338,26 +632,28 @@ function renderParticipants() {
     })
     .filter(p => {
       return !q ||
-        p.name.toLowerCase().includes(q) ||
-        (p.navigator || '').toLowerCase().includes(q);
+        String(p.stateId || '').toLowerCase().includes(q) ||
+        String(p.name || '').toLowerCase().includes(q) ||
+        String(p.navigator || '').toLowerCase().includes(q);
     })
     .filter(p => f === 'all' || p.contactStatus === f)
     .sort((a, b) => {
       const rank = {
         'Overdue': 0,
         'Close': 1,
-        'No Contact Date': 2,
+        'No Case Note Date': 2,
         'Current': 3
       };
 
       return rank[a.contactStatus] - rank[b.contactStatus] ||
-        a.name.localeCompare(b.name);
+        String(a.name || '').localeCompare(String(b.name || ''));
     });
 
   document.getElementById('participantRows').innerHTML = rows.map(p => `
     <tr class="border-b ${rowClass(p.contactStatus)}">
-      <td class="p-3 font-semibold">${escapeHtml(p.name)}</td>
-      <td class="p-3">${escapeHtml(p.program || '')}</td>
+      <td class="p-3">${escapeHtml(p.stateId || '')}</td>
+      <td class="p-3 font-semibold">${escapeHtml(p.name || '')}</td>
+      <td class="p-3">${formatDate(p.participationDate)}</td>
       <td class="p-3">${escapeHtml(p.navigator || '')}</td>
       <td class="p-3">${escapeHtml(p.status || '')}</td>
       <td class="p-3">${formatDate(p.lastDate)}</td>
@@ -366,12 +662,12 @@ function renderParticipants() {
       <td class="p-3 font-bold">${p.contactStatus}</td>
       <td class="p-3">${escapeHtml(p.latest?.method || '')}</td>
       <td class="p-3 no-print">
-        <button onclick="deleteParticipant('${escapeAttr(p.name)}')" class="text-red-700 underline">Delete</button>
+        <button onclick="deleteParticipant('${escapeAttr(p.name)}','${escapeAttr(p.stateId || '')}')" class="text-red-700 underline">Delete</button>
       </td>
     </tr>
   `).join('') || `
     <tr>
-      <td colspan="10" class="p-4 text-slate-500">No participants entered.</td>
+      <td colspan="11" class="p-4 text-slate-500">No participants entered.</td>
     </tr>
   `;
 }
@@ -412,16 +708,20 @@ function importJSON(event) {
   const reader = new FileReader();
 
   reader.onload = () => {
-    const imported = JSON.parse(reader.result);
+    try {
+      const imported = JSON.parse(reader.result);
 
-    if (!imported.participants || !imported.logs) {
-      alert('Invalid file.');
-      return;
+      if (!imported.participants || !imported.logs) {
+        alert('Invalid file.');
+        return;
+      }
+
+      data = imported;
+      persist();
+      render();
+    } catch {
+      alert('Invalid JSON file.');
     }
-
-    data = imported;
-    persist();
-    render();
   };
 
   reader.readAsText(file);
@@ -429,11 +729,12 @@ function importJSON(event) {
 
 function exportCSV() {
   const header = [
+    'State ID',
     'Participant',
-    'Program',
-    'Career Navigator',
+    'Participation Date',
+    'Assigned Staff',
     'Participant Status',
-    'Last Contact',
+    'Last Case Note Date',
     'Days Since',
     'Next Due',
     'Contact Status',
@@ -447,10 +748,11 @@ function exportCSV() {
     const lastDate = latest?.date || '';
 
     lines.push([
-      p.name,
-      p.program,
-      p.navigator,
-      p.status,
+      p.stateId || '',
+      p.name || '',
+      p.participationDate || '',
+      p.navigator || '',
+      p.status || '',
       lastDate,
       daysSince(lastDate) ?? '',
       addDays(lastDate, 30),
