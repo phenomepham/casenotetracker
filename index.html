@@ -3,28 +3,40 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>30-Day Contact Tracker</title>
+
+  <title>30-Day Case Note Contact Tracker</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Excel import library -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
     @media print {
-      .no-print { display: none !important; }
-      body { background: white !important; }
-      table { font-size: 11px; }
+      .no-print {
+        display: none !important;
+      }
+
+      body {
+        background: white !important;
+      }
+
+      table {
+        font-size: 11px;
+      }
+    }
+
+    th {
+      white-space: nowrap;
     }
   </style>
 </head>
 
 <body class="bg-slate-100 text-slate-900">
   <div class="max-w-7xl mx-auto p-4 md:p-6">
+
     <header class="mb-5">
-      <h1 class="text-2xl md:text-3xl font-bold">30-Day Participant Contact Tracker</h1>
+      <h1 class="text-2xl md:text-3xl font-bold">30-Day Case Note Contact Tracker</h1>
       <p class="text-sm text-slate-600 mt-1">
-        Track last case note dates, identify participants close to 30 days, and flag overdue participants.
+        Track participant case note dates, import Excel reports, filter by staff/status, and identify participants close to or over 30 days.
       </p>
     </header>
 
@@ -34,13 +46,13 @@
       <h2 class="text-lg font-semibold mb-3">Import Participants from Excel</h2>
 
       <div class="grid md:grid-cols-4 gap-3 items-center">
-        <label class="border rounded-lg px-3 py-2 cursor-pointer bg-slate-50 hover:bg-slate-100">
+        <label class="border rounded-lg px-3 py-2 cursor-pointer bg-slate-50 hover:bg-slate-100 text-center">
           Import Excel File
           <input type="file" accept=".xlsx,.xls" onchange="importExcel(event)" class="hidden" />
         </label>
 
         <div class="md:col-span-3 text-sm text-slate-600">
-          The tool will look for these columns:
+          Accepted columns:
           <strong>State ID</strong>,
           <strong>Last, First Name</strong>,
           <strong>Participation Date</strong>,
@@ -54,18 +66,19 @@
     </section>
 
     <section class="bg-white rounded-2xl shadow p-4 mb-5 no-print">
-      <h2 class="text-lg font-semibold mb-3">Add / Update Participant</h2>
+      <h2 class="text-lg font-semibold mb-3">Add / Update Participant Manually</h2>
 
       <div class="grid md:grid-cols-7 gap-3">
         <input id="pStateId" class="border rounded-lg p-2" placeholder="State ID" />
         <input id="pName" class="border rounded-lg p-2 md:col-span-2" placeholder="Participant name" />
-        <input id="pProgram" class="border rounded-lg p-2" placeholder="Program" />
-        <input id="pNavigator" class="border rounded-lg p-2" placeholder="Career Navigator" />
+        <input id="pParticipationDate" type="date" class="border rounded-lg p-2" />
+        <input id="pNavigator" class="border rounded-lg p-2" placeholder="Assigned Staff" />
 
         <select id="pStatus" class="border rounded-lg p-2">
           <option>Active</option>
           <option>Training</option>
           <option>WEX</option>
+          <option>OJT</option>
           <option>Follow-Up</option>
           <option>Closed</option>
         </select>
@@ -110,36 +123,76 @@
     </section>
 
     <section class="bg-white rounded-2xl shadow p-4 mb-5 no-print">
-      <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-        <div class="flex flex-col md:flex-row gap-3">
-          <input id="searchBox" oninput="render()" class="border rounded-lg p-2" placeholder="Search participant, State ID, or staff" />
+      <div class="flex flex-col gap-3">
+        <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+          <div class="flex flex-col md:flex-row gap-3">
+            <input
+              id="searchBox"
+              oninput="render()"
+              class="border rounded-lg p-2"
+              placeholder="Search participant, State ID, or staff"
+            />
 
-          <select id="statusFilter" onchange="render()" class="border rounded-lg p-2">
-            <option value="all">All contact statuses</option>
-            <option value="Current">Current</option>
-            <option value="Close">Close to 30 Days</option>
-            <option value="Overdue">Over 30 Days</option>
-            <option value="No Case Note Date">No Case Note Date</option>
-          </select>
+            <select id="statusFilter" onchange="render()" class="border rounded-lg p-2">
+              <option value="all">All contact statuses</option>
+              <option value="Current">Current</option>
+              <option value="Close">Close to 30 Days</option>
+              <option value="Overdue">Over 30 Days</option>
+              <option value="No Case Note Date">No Case Note Date</option>
+            </select>
+
+            <select id="staffFilter" onchange="render()" class="border rounded-lg p-2">
+              <option value="all">All assigned staff</option>
+            </select>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="exportJSON()" class="border rounded-lg px-3 py-2">Export JSON</button>
+
+            <label class="border rounded-lg px-3 py-2 cursor-pointer">
+              Import JSON
+              <input type="file" accept="application/json" onchange="importJSON(event)" class="hidden" />
+            </label>
+
+            <button onclick="exportCSV()" class="border rounded-lg px-3 py-2">Export CSV</button>
+            <button onclick="window.print()" class="border rounded-lg px-3 py-2">Print</button>
+            <button onclick="clearAllData()" class="border border-red-300 text-red-700 rounded-lg px-3 py-2">Clear Data</button>
+          </div>
         </div>
 
-        <div class="flex flex-wrap gap-2">
-          <button onclick="exportJSON()" class="border rounded-lg px-3 py-2">Export JSON</button>
+        <div class="grid md:grid-cols-5 gap-3">
+          <select id="sortColumn" onchange="render()" class="border rounded-lg p-2">
+            <option value="default">Default Sort: Overdue First</option>
+            <option value="stateId">Sort by State ID</option>
+            <option value="name">Sort by Participant</option>
+            <option value="participationDate">Sort by Participation Date</option>
+            <option value="navigator">Sort by Assigned Staff</option>
+            <option value="status">Sort by Participant Status</option>
+            <option value="lastDate">Sort by Last Case Note Date</option>
+            <option value="days">Sort by Days Since</option>
+            <option value="nextDue">Sort by Next Due</option>
+            <option value="contactStatus">Sort by Contact Status</option>
+            <option value="method">Sort by Last Method</option>
+          </select>
 
-          <label class="border rounded-lg px-3 py-2 cursor-pointer">
-            Import JSON
-            <input type="file" accept="application/json" onchange="importJSON(event)" class="hidden" />
-          </label>
+          <select id="sortDirection" onchange="render()" class="border rounded-lg p-2">
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
 
-          <button onclick="exportCSV()" class="border rounded-lg px-3 py-2">Export CSV</button>
-          <button onclick="window.print()" class="border rounded-lg px-3 py-2">Print</button>
-          <button onclick="clearAllData()" class="border border-red-300 text-red-700 rounded-lg px-3 py-2">Clear Data</button>
+          <input id="minDaysFilter" oninput="render()" type="number" class="border rounded-lg p-2" placeholder="Minimum days since" />
+
+          <input id="maxDaysFilter" oninput="render()" type="number" class="border rounded-lg p-2" placeholder="Maximum days since" />
+
+          <button onclick="resetFilters()" class="border rounded-lg px-3 py-2 bg-slate-50 hover:bg-slate-100">
+            Reset Filters
+          </button>
         </div>
       </div>
     </section>
 
     <section class="bg-white rounded-2xl shadow overflow-hidden mb-5">
-      <div class="p-4 border-b flex items-center justify-between">
+      <div class="p-4 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-2">
         <h2 class="text-lg font-semibold">Participant Tracker</h2>
         <p class="text-sm text-slate-500">Yellow = 25–29 days. Red = 30+ days.</p>
       </div>
@@ -148,16 +201,16 @@
         <table class="w-full text-sm">
           <thead class="bg-slate-800 text-white">
             <tr>
-              <th class="text-left p-3">State ID</th>
-              <th class="text-left p-3">Participant</th>
-              <th class="text-left p-3">Participation Date</th>
-              <th class="text-left p-3">Assigned Staff</th>
-              <th class="text-left p-3">Participant Status</th>
-              <th class="text-left p-3">Last Case Note Date</th>
-              <th class="text-left p-3">Days Since</th>
-              <th class="text-left p-3">Next Due</th>
-              <th class="text-left p-3">Contact Status</th>
-              <th class="text-left p-3">Last Method</th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('stateId')">State ID <span id="sort-stateId"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('name')">Participant <span id="sort-name"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('participationDate')">Participation Date <span id="sort-participationDate"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('navigator')">Assigned Staff <span id="sort-navigator"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('status')">Participant Status <span id="sort-status"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('lastDate')">Last Case Note Date <span id="sort-lastDate"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('days')">Days Since <span id="sort-days"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('nextDue')">Next Due <span id="sort-nextDue"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('contactStatus')">Contact Status <span id="sort-contactStatus"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('method')">Last Method <span id="sort-method"></span></th>
               <th class="text-left p-3 no-print">Actions</th>
             </tr>
           </thead>
@@ -192,7 +245,8 @@
   </div>
 
 <script>
-const STORAGE_KEY = 'cn_30_day_contact_tracker_v2';
+const STORAGE_KEY = 'cn_30_day_case_note_tracker_v3';
+
 let data = loadData();
 
 document.getElementById('logDate').valueAsDate = new Date();
@@ -225,8 +279,9 @@ function parseDate(value) {
   if (!value) return null;
 
   if (value instanceof Date && !isNaN(value)) {
-    value.setHours(0, 0, 0, 0);
-    return value;
+    const d = new Date(value);
+    d.setHours(0, 0, 0, 0);
+    return d;
   }
 
   if (typeof value === 'number') {
@@ -256,26 +311,37 @@ function parseDate(value) {
 function toISODate(value) {
   const d = parseDate(value);
   if (!d) return '';
-  return d.toISOString().slice(0, 10);
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
 function formatDate(value) {
   if (!value) return '';
+
   const d = parseDate(value);
-  return d ? d.toLocaleDateString() : '';
+  if (!d) return '';
+
+  return d.toLocaleDateString();
 }
 
 function daysSince(value) {
   const d = parseDate(value);
   if (!d) return null;
+
   return Math.floor((todayStart() - d) / 86400000);
 }
 
 function addDays(value, days) {
   const d = parseDate(value);
   if (!d) return '';
+
   d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
+
+  return toISODate(d);
 }
 
 function normalizeHeader(value) {
@@ -286,15 +352,42 @@ function normalizeHeader(value) {
     .toLowerCase();
 }
 
+function cleanText(value) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
 function getValueByHeader(row, headerMap, possibleNames) {
   for (const name of possibleNames) {
     const key = normalizeHeader(name);
+
     if (headerMap[key] !== undefined) {
       return row[headerMap[key]];
     }
   }
 
   return '';
+}
+
+function sameParticipant(a, b) {
+  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+}
+
+function createId() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+
+  return String(Date.now()) + String(Math.random()).slice(2);
+}
+
+function findParticipant(stateId, name) {
+  if (stateId) {
+    const byStateId = data.participants.find(
+      p => String(p.stateId || '').trim() === String(stateId).trim()
+    );
+
+    if (byStateId) return byStateId;
+  }
+
+  return data.participants.find(p => sameParticipant(p.name, name));
 }
 
 function latestLogForParticipant(participant) {
@@ -304,10 +397,6 @@ function latestLogForParticipant(participant) {
     .sort((a, b) => b.date.localeCompare(a.date));
 
   return logs[0] || null;
-}
-
-function sameParticipant(a, b) {
-  return String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 }
 
 function contactStatus(lastDate) {
@@ -324,12 +413,16 @@ function rowClass(status) {
   if (status === 'Overdue') return 'bg-red-100';
   if (status === 'Close') return 'bg-yellow-100';
   if (status === 'No Case Note Date') return 'bg-blue-50';
+
   return '';
 }
 
 function saveParticipant() {
   const stateId = document.getElementById('pStateId').value.trim();
   const name = document.getElementById('pName').value.trim();
+  const participationDate = document.getElementById('pParticipationDate').value;
+  const navigator = document.getElementById('pNavigator').value.trim();
+  const status = document.getElementById('pStatus').value;
 
   if (!name) {
     alert('Participant name is required.');
@@ -341,10 +434,10 @@ function saveParticipant() {
   const record = {
     stateId,
     name,
-    program: document.getElementById('pProgram').value.trim(),
-    navigator: document.getElementById('pNavigator').value.trim(),
-    participationDate: existing?.participationDate || '',
-    status: document.getElementById('pStatus').value
+    participationDate,
+    navigator,
+    status,
+    importedDaysSince: existing?.importedDaysSince || ''
   };
 
   if (existing) {
@@ -353,7 +446,7 @@ function saveParticipant() {
     data.participants.push(record);
   }
 
-  ['pStateId', 'pName', 'pProgram', 'pNavigator'].forEach(id => {
+  ['pStateId', 'pName', 'pParticipationDate', 'pNavigator'].forEach(id => {
     document.getElementById(id).value = '';
   });
 
@@ -361,18 +454,12 @@ function saveParticipant() {
   render();
 }
 
-function findParticipant(stateId, name) {
-  if (stateId) {
-    const byStateId = data.participants.find(p => String(p.stateId || '').trim() === String(stateId).trim());
-    if (byStateId) return byStateId;
-  }
-
-  return data.participants.find(p => sameParticipant(p.name, name));
-}
-
 function addContactLog() {
   const participant = document.getElementById('logParticipant').value;
   const date = document.getElementById('logDate').value;
+  const method = document.getElementById('logMethod').value;
+  const caseNote = document.getElementById('logCaseNote').value;
+  const note = document.getElementById('logNote').value.trim();
 
   if (!participant || !date) {
     alert('Participant and date are required.');
@@ -382,9 +469,9 @@ function addContactLog() {
   upsertLog({
     participant,
     date,
-    method: document.getElementById('logMethod').value,
-    caseNote: document.getElementById('logCaseNote').value,
-    note: document.getElementById('logNote').value.trim()
+    method,
+    caseNote,
+    note
   });
 
   document.getElementById('logNote').value = '';
@@ -411,11 +498,6 @@ function upsertLog(log) {
   }
 }
 
-function createId() {
-  if (crypto.randomUUID) return crypto.randomUUID();
-  return String(Date.now()) + String(Math.random()).slice(2);
-}
-
 function importExcel(event) {
   const file = event.target.files[0];
 
@@ -425,17 +507,25 @@ function importExcel(event) {
 
   reader.onload = function(e) {
     try {
-      const workbook = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      const workbook = XLSX.read(e.target.result, {
+        type: 'array',
+        cellDates: true
+      });
+
       const firstSheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[firstSheetName];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+      const rows = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        defval: ''
+      });
 
       if (!rows.length) {
         alert('No rows found in the Excel file.');
         return;
       }
 
-      let headerRowIndex = findHeaderRow(rows);
+      const headerRowIndex = findHeaderRow(rows);
 
       if (headerRowIndex === -1) {
         alert('Could not find the required Excel headers.');
@@ -464,7 +554,8 @@ function importExcel(event) {
           'Last, First Name',
           'Last,First Name',
           'Name',
-          'Participant'
+          'Participant',
+          'Participant Name'
         ]));
 
         const participationDate = toISODate(getValueByHeader(row, headerMap, [
@@ -472,19 +563,21 @@ function importExcel(event) {
         ]));
 
         const assignedStaff = cleanText(getValueByHeader(row, headerMap, [
-          'Assigned Staff'
+          'Assigned Staff',
+          'Staff',
+          'Career Navigator'
         ]));
 
         const lastCaseNoteDate = toISODate(getValueByHeader(row, headerMap, [
           'Last Case Note Date',
-          'Last Case Note Date',
-          'Last Case Note'
+          'Last Case Note',
+          'Last Note Date'
         ]));
 
         const importedDaysSince = cleanText(getValueByHeader(row, headerMap, [
           'Days Since Last Case Note',
-          'Days Since Last Case Note',
-          'Days Since'
+          'Days Since',
+          'Days Since Last Note'
         ]));
 
         if (!stateId && !name) {
@@ -497,9 +590,8 @@ function importExcel(event) {
         const participantRecord = {
           stateId,
           name,
-          program: existing?.program || '',
-          navigator: assignedStaff || existing?.navigator || '',
           participationDate,
+          navigator: assignedStaff || existing?.navigator || '',
           status: existing?.status || 'Active',
           importedDaysSince
         };
@@ -540,12 +632,21 @@ function importExcel(event) {
 }
 
 function findHeaderRow(rows) {
-  for (let i = 0; i < Math.min(rows.length, 20); i++) {
+  for (let i = 0; i < Math.min(rows.length, 25); i++) {
     const normalized = rows[i].map(normalizeHeader);
 
     const hasStateId = normalized.includes('state id');
-    const hasName = normalized.includes('last, first name') || normalized.includes('last,first name');
-    const hasLastCaseNote = normalized.some(h => h.includes('last') && h.includes('case note') && h.includes('date'));
+
+    const hasName =
+      normalized.includes('last, first name') ||
+      normalized.includes('last,first name') ||
+      normalized.includes('participant name');
+
+    const hasLastCaseNote = normalized.some(h =>
+      h.includes('last') &&
+      h.includes('case note') &&
+      h.includes('date')
+    );
 
     if (hasStateId && hasName && hasLastCaseNote) {
       return i;
@@ -555,15 +656,14 @@ function findHeaderRow(rows) {
   return -1;
 }
 
-function cleanText(value) {
-  return String(value ?? '').replace(/\s+/g, ' ').trim();
-}
-
 function deleteParticipant(name, stateId) {
   if (!confirm('Delete this participant and their contact log entries?')) return;
 
   data.participants = data.participants.filter(p => {
-    if (stateId) return String(p.stateId || '') !== String(stateId);
+    if (stateId) {
+      return String(p.stateId || '') !== String(stateId);
+    }
+
     return !sameParticipant(p.name, name);
   });
 
@@ -575,6 +675,7 @@ function deleteParticipant(name, stateId) {
 
 function deleteLog(id) {
   data.logs = data.logs.filter(l => l.id !== id);
+
   persist();
   render();
 }
@@ -582,37 +683,148 @@ function deleteLog(id) {
 function updateParticipantDropdown() {
   const select = document.getElementById('logParticipant');
 
-  select.innerHTML = data.participants
-    .sort((a, b) => a.name.localeCompare(b.name))
+  const sorted = [...data.participants].sort((a, b) =>
+    String(a.name || '').localeCompare(String(b.name || ''))
+  );
+
+  select.innerHTML = sorted
     .map(p => `<option value="${escapeHtml(p.name)}">${escapeHtml(p.name)}</option>`)
     .join('');
 }
 
+function updateStaffFilter() {
+  const staffFilter = document.getElementById('staffFilter');
+
+  if (!staffFilter) return;
+
+  const currentValue = staffFilter.value;
+
+  const staffList = [...new Set(
+    data.participants
+      .map(p => String(p.navigator || '').trim())
+      .filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b));
+
+  staffFilter.innerHTML = `
+    <option value="all">All assigned staff</option>
+    ${staffList.map(staff => `<option value="${escapeHtml(staff)}">${escapeHtml(staff)}</option>`).join('')}
+  `;
+
+  if (staffList.includes(currentValue)) {
+    staffFilter.value = currentValue;
+  }
+}
+
 function renderSummary() {
-  const enriched = data.participants.map(p => {
+  const statuses = data.participants.map(p => {
     const latest = latestLogForParticipant(p.name);
     return contactStatus(latest?.date);
   });
 
   const cards = [
     ['Total', data.participants.length, 'bg-slate-800 text-white'],
-    ['Current', enriched.filter(s => s === 'Current').length, 'bg-emerald-700 text-white'],
-    ['Close', enriched.filter(s => s === 'Close').length, 'bg-yellow-500 text-slate-900'],
-    ['Overdue', enriched.filter(s => s === 'Overdue').length, 'bg-red-700 text-white'],
-    ['No Date', enriched.filter(s => s === 'No Case Note Date').length, 'bg-blue-700 text-white']
+    ['Current', statuses.filter(s => s === 'Current').length, 'bg-emerald-700 text-white'],
+    ['Close', statuses.filter(s => s === 'Close').length, 'bg-yellow-500 text-slate-900'],
+    ['Overdue', statuses.filter(s => s === 'Overdue').length, 'bg-red-700 text-white'],
+    ['No Date', statuses.filter(s => s === 'No Case Note Date').length, 'bg-blue-700 text-white']
   ];
 
-  document.getElementById('summaryCards').innerHTML = cards.map(c => `
-    <div class="rounded-2xl shadow p-4 ${c[2]}">
-      <div class="text-sm opacity-90">${c[0]}</div>
-      <div class="text-3xl font-bold">${c[1]}</div>
+  document.getElementById('summaryCards').innerHTML = cards.map(card => `
+    <div class="rounded-2xl shadow p-4 ${card[2]}">
+      <div class="text-sm opacity-90">${card[0]}</div>
+      <div class="text-3xl font-bold">${card[1]}</div>
     </div>
   `).join('');
 }
 
+function setSort(column) {
+  const sortColumn = document.getElementById('sortColumn');
+  const sortDirection = document.getElementById('sortDirection');
+
+  if (sortColumn.value === column) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortColumn.value = column;
+    sortDirection.value = 'asc';
+  }
+
+  render();
+}
+
+function compareValues(a, b, column, direction) {
+  let valueA = a[column];
+  let valueB = b[column];
+
+  if (column === 'days') {
+    valueA = valueA === null ? -1 : Number(valueA);
+    valueB = valueB === null ? -1 : Number(valueB);
+  } else if (['participationDate', 'lastDate', 'nextDue'].includes(column)) {
+    valueA = valueA ? new Date(valueA).getTime() : 0;
+    valueB = valueB ? new Date(valueB).getTime() : 0;
+  } else {
+    valueA = String(valueA || '').toLowerCase();
+    valueB = String(valueB || '').toLowerCase();
+  }
+
+  if (valueA < valueB) return direction === 'asc' ? -1 : 1;
+  if (valueA > valueB) return direction === 'asc' ? 1 : -1;
+
+  return 0;
+}
+
+function updateSortIndicators() {
+  const sortColumn = document.getElementById('sortColumn')?.value || 'default';
+  const sortDirection = document.getElementById('sortDirection')?.value || 'asc';
+
+  const columns = [
+    'stateId',
+    'name',
+    'participationDate',
+    'navigator',
+    'status',
+    'lastDate',
+    'days',
+    'nextDue',
+    'contactStatus',
+    'method'
+  ];
+
+  columns.forEach(column => {
+    const el = document.getElementById(`sort-${column}`);
+
+    if (!el) return;
+
+    el.textContent = sortColumn === column
+      ? sortDirection === 'asc'
+        ? '▲'
+        : '▼'
+      : '';
+  });
+}
+
+function resetFilters() {
+  document.getElementById('searchBox').value = '';
+  document.getElementById('statusFilter').value = 'all';
+  document.getElementById('staffFilter').value = 'all';
+  document.getElementById('sortColumn').value = 'default';
+  document.getElementById('sortDirection').value = 'asc';
+  document.getElementById('minDaysFilter').value = '';
+  document.getElementById('maxDaysFilter').value = '';
+
+  render();
+}
+
 function renderParticipants() {
   const q = document.getElementById('searchBox').value.toLowerCase();
-  const f = document.getElementById('statusFilter').value;
+  const contactStatusFilter = document.getElementById('statusFilter').value;
+  const staff = document.getElementById('staffFilter')?.value || 'all';
+  const sortColumn = document.getElementById('sortColumn')?.value || 'default';
+  const sortDirection = document.getElementById('sortDirection')?.value || 'asc';
+  const minDaysRaw = document.getElementById('minDaysFilter')?.value;
+  const maxDaysRaw = document.getElementById('maxDaysFilter')?.value;
+
+  const minDays = minDaysRaw === '' ? null : Number(minDaysRaw);
+  const maxDays = maxDaysRaw === '' ? null : Number(maxDaysRaw);
 
   const rows = data.participants
     .map(p => {
@@ -626,6 +838,7 @@ function renderParticipants() {
         latest,
         lastDate,
         days,
+        method: latest?.method || '',
         contactStatus: status,
         nextDue: addDays(lastDate, 30)
       };
@@ -634,10 +847,17 @@ function renderParticipants() {
       return !q ||
         String(p.stateId || '').toLowerCase().includes(q) ||
         String(p.name || '').toLowerCase().includes(q) ||
-        String(p.navigator || '').toLowerCase().includes(q);
+        String(p.navigator || '').toLowerCase().includes(q) ||
+        String(p.status || '').toLowerCase().includes(q) ||
+        String(p.contactStatus || '').toLowerCase().includes(q);
     })
-    .filter(p => f === 'all' || p.contactStatus === f)
-    .sort((a, b) => {
+    .filter(p => contactStatusFilter === 'all' || p.contactStatus === contactStatusFilter)
+    .filter(p => staff === 'all' || String(p.navigator || '') === staff)
+    .filter(p => minDays === null || (p.days !== null && p.days >= minDays))
+    .filter(p => maxDays === null || (p.days !== null && p.days <= maxDays));
+
+  if (sortColumn === 'default') {
+    rows.sort((a, b) => {
       const rank = {
         'Overdue': 0,
         'Close': 1,
@@ -648,6 +868,9 @@ function renderParticipants() {
       return rank[a.contactStatus] - rank[b.contactStatus] ||
         String(a.name || '').localeCompare(String(b.name || ''));
     });
+  } else {
+    rows.sort((a, b) => compareValues(a, b, sortColumn, sortDirection));
+  }
 
   document.getElementById('participantRows').innerHTML = rows.map(p => `
     <tr class="border-b ${rowClass(p.contactStatus)}">
@@ -660,16 +883,20 @@ function renderParticipants() {
       <td class="p-3 font-semibold">${p.days === null ? '' : p.days}</td>
       <td class="p-3">${formatDate(p.nextDue)}</td>
       <td class="p-3 font-bold">${p.contactStatus}</td>
-      <td class="p-3">${escapeHtml(p.latest?.method || '')}</td>
+      <td class="p-3">${escapeHtml(p.method || '')}</td>
       <td class="p-3 no-print">
-        <button onclick="deleteParticipant('${escapeAttr(p.name)}','${escapeAttr(p.stateId || '')}')" class="text-red-700 underline">Delete</button>
+        <button onclick="deleteParticipant('${escapeAttr(p.name)}','${escapeAttr(p.stateId || '')}')" class="text-red-700 underline">
+          Delete
+        </button>
       </td>
     </tr>
   `).join('') || `
     <tr>
-      <td colspan="11" class="p-4 text-slate-500">No participants entered.</td>
+      <td colspan="11" class="p-4 text-slate-500">No participants match the selected filters.</td>
     </tr>
   `;
+
+  updateSortIndicators();
 }
 
 function renderLogs() {
@@ -683,7 +910,9 @@ function renderLogs() {
       <td class="p-3">${escapeHtml(l.caseNote)}</td>
       <td class="p-3">${escapeHtml(l.note || '')}</td>
       <td class="p-3 no-print">
-        <button onclick="deleteLog('${escapeAttr(l.id)}')" class="text-red-700 underline">Delete</button>
+        <button onclick="deleteLog('${escapeAttr(l.id)}')" class="text-red-700 underline">
+          Delete
+        </button>
       </td>
     </tr>
   `).join('') || `
@@ -695,7 +924,7 @@ function renderLogs() {
 
 function exportJSON() {
   downloadFile(
-    '30-day-contact-tracker-data.json',
+    '30-day-case-note-tracker-data.json',
     JSON.stringify(data, null, 2),
     'application/json'
   );
@@ -703,6 +932,7 @@ function exportJSON() {
 
 function importJSON(event) {
   const file = event.target.files[0];
+
   if (!file) return;
 
   const reader = new FileReader();
@@ -765,7 +995,7 @@ function exportCSV() {
     .map(row => row.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
     .join('\n');
 
-  downloadFile('30-day-contact-tracker.csv', csv, 'text/csv');
+  downloadFile('30-day-case-note-tracker.csv', csv, 'text/csv');
 }
 
 function downloadFile(filename, content, type) {
@@ -803,6 +1033,7 @@ function escapeAttr(value) {
 
 function render() {
   updateParticipantDropdown();
+  updateStaffFilter();
   renderSummary();
   renderParticipants();
   renderLogs();
