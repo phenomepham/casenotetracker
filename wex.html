@@ -35,7 +35,7 @@
     <header class="mb-5">
       <h1 class="text-2xl md:text-3xl font-bold">Work Experience Tracker</h1>
       <p class="text-sm text-slate-600 mt-1">
-        Track WEX participants, worksites, case notes, site visits, completed hours, remaining hours, CN contact, completion status, and success rating.
+        Track WEX participants, worksites, case notes, site visits, hours, CN contact, completion status, success rating, and participant progress updates.
       </p>
 
       <div class="flex flex-wrap gap-2 mt-4 no-print">
@@ -130,6 +130,58 @@
     </section>
 
     <section class="bg-white rounded-2xl shadow p-4 mb-5 no-print">
+      <h2 class="text-lg font-semibold mb-3">Add Participant Progress Update</h2>
+
+      <div class="grid md:grid-cols-6 gap-3">
+        <select id="logParticipant" class="border rounded-lg p-2 md:col-span-2">
+          <option value="">Select participant</option>
+        </select>
+
+        <input id="logDate" type="date" class="border rounded-lg p-2" />
+
+        <select id="logType" class="border rounded-lg p-2">
+          <option>General Update</option>
+          <option>Progress Update</option>
+          <option>Case Note Entered</option>
+          <option>Site Visit</option>
+          <option>Hours Update</option>
+          <option>CN Contact</option>
+          <option>Worksite Concern</option>
+          <option>Participant Concern</option>
+          <option>Completion Update</option>
+        </select>
+
+        <input id="logEnteredBy" class="border rounded-lg p-2" placeholder="Entered By" />
+
+        <select id="logProgressRating" class="border rounded-lg p-2">
+          <option value="">Progress Rating 1-10</option>
+          <option>1</option>
+          <option>2</option>
+          <option>3</option>
+          <option>4</option>
+          <option>5</option>
+          <option>6</option>
+          <option>7</option>
+          <option>8</option>
+          <option>9</option>
+          <option>10</option>
+        </select>
+
+        <textarea id="logSummary" class="border rounded-lg p-2 md:col-span-3" rows="3" placeholder="What changed or what progress was made?"></textarea>
+
+        <textarea id="logNextStep" class="border rounded-lg p-2 md:col-span-3" rows="3" placeholder="Next step or follow-up needed"></textarea>
+
+        <button onclick="saveUpdateLog()" class="bg-emerald-700 text-white rounded-lg px-4 py-2 font-semibold">
+          Save Update Log
+        </button>
+
+        <button onclick="clearLogForm()" class="border rounded-lg px-4 py-2">
+          Clear Update Form
+        </button>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow p-4 mb-5 no-print">
       <div class="grid md:grid-cols-6 gap-3">
         <input id="searchBox" oninput="render()" class="border rounded-lg p-2 md:col-span-2" placeholder="Search participant, State ID, worksite, or CN" />
 
@@ -157,6 +209,7 @@
           <option value="hoursCompleted">Hours Completed</option>
           <option value="hoursRemaining">Hours Remaining</option>
           <option value="successRating">Success Rating</option>
+          <option value="lastUpdateDate">Last Update Log Date</option>
           <option value="wexStatus">WEX Status</option>
         </select>
 
@@ -172,7 +225,11 @@
 
       <div class="flex flex-wrap gap-2 mt-4">
         <button onclick="exportCSV()" class="border rounded-lg px-3 py-2">
-          Export CSV
+          Export WEX CSV
+        </button>
+
+        <button onclick="exportLogCSV()" class="border rounded-lg px-3 py-2">
+          Export Update Log CSV
         </button>
 
         <button onclick="exportJSON()" class="border rounded-lg px-3 py-2">
@@ -214,14 +271,13 @@
               <th class="text-left p-3 cursor-pointer" onclick="setSort('endDate')">End Date <span id="sort-endDate"></span></th>
               <th class="text-left p-3 cursor-pointer" onclick="setSort('caseNoteDate')">Last Case Note <span id="sort-caseNoteDate"></span></th>
               <th class="text-left p-3 cursor-pointer" onclick="setSort('siteVisitDate')">Last Site Visit <span id="sort-siteVisitDate"></span></th>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('approvedHours')">Approved Hours <span id="sort-approvedHours"></span></th>
               <th class="text-left p-3 cursor-pointer" onclick="setSort('hoursCompleted')">Hours Completed <span id="sort-hoursCompleted"></span></th>
               <th class="text-left p-3 cursor-pointer" onclick="setSort('hoursRemaining')">Hours Remaining <span id="sort-hoursRemaining"></span></th>
               <th class="text-left p-3">CN Contacted?</th>
               <th class="text-left p-3">Ended Successfully?</th>
               <th class="text-left p-3 cursor-pointer" onclick="setSort('successRating')">Rating <span id="sort-successRating"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('lastUpdateDate')">Last Update <span id="sort-lastUpdateDate"></span></th>
               <th class="text-left p-3 cursor-pointer" onclick="setSort('wexStatus')">WEX Status <span id="sort-wexStatus"></span></th>
-              <th class="text-left p-3">Notes</th>
               <th class="text-left p-3 no-print">Actions</th>
             </tr>
           </thead>
@@ -230,13 +286,52 @@
         </table>
       </div>
     </section>
+
+    <section class="bg-white rounded-2xl shadow overflow-hidden">
+      <div class="p-4 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <h2 class="text-lg font-semibold">Participant Update Log</h2>
+
+        <div class="flex gap-2 no-print">
+          <select id="logFilterParticipant" onchange="renderUpdateLogs()" class="border rounded-lg p-2">
+            <option value="all">All participants</option>
+          </select>
+
+          <button onclick="resetLogFilter()" class="border rounded-lg px-3 py-2">
+            Reset Log Filter
+          </button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto max-h-96 overflow-y-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-200 sticky top-0">
+            <tr>
+              <th class="text-left p-3">Date Added</th>
+              <th class="text-left p-3">Participant</th>
+              <th class="text-left p-3">Update Type</th>
+              <th class="text-left p-3">Progress Rating</th>
+              <th class="text-left p-3">Summary</th>
+              <th class="text-left p-3">Next Step</th>
+              <th class="text-left p-3">Entered By</th>
+              <th class="text-left p-3 no-print">Action</th>
+            </tr>
+          </thead>
+
+          <tbody id="updateLogRows"></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
 <script>
 const STORAGE_KEY = 'wex_tracker_v1';
+const LOG_STORAGE_KEY = 'wex_update_log_v1';
 
 let records = loadRecords();
+let updateLogs = loadUpdateLogs();
 let editingId = null;
+
+document.getElementById('logDate').valueAsDate = new Date();
 
 function loadRecords() {
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -250,8 +345,21 @@ function loadRecords() {
   }
 }
 
+function loadUpdateLogs() {
+  const saved = localStorage.getItem(LOG_STORAGE_KEY);
+
+  if (!saved) return [];
+
+  try {
+    return JSON.parse(saved);
+  } catch {
+    return [];
+  }
+}
+
 function persist() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(updateLogs));
 
   const status = document.getElementById('saveStatus');
   if (status) {
@@ -364,6 +472,7 @@ function saveRecord() {
   };
 
   const existingIndex = records.findIndex(r => r.id === record.id);
+  const actionText = existingIndex >= 0 ? 'WEX record updated.' : 'WEX record created.';
 
   if (existingIndex >= 0) {
     records[existingIndex] = record;
@@ -385,11 +494,93 @@ function saveRecord() {
     }
   }
 
+  updateLogs.unshift({
+    id: createId(),
+    participantName: record.participantName,
+    stateId: record.stateId,
+    date: new Date().toISOString().slice(0, 10),
+    type: 'WEX Record Update',
+    progressRating: record.successRating || '',
+    summary: actionText + ' Worksite: ' + (record.worksite || 'Not listed') + '. Hours completed: ' + record.hoursCompleted + '. Hours remaining: ' + record.hoursRemaining + '.',
+    nextStep: record.notes || '',
+    enteredBy: record.assignedCN || ''
+  });
+
   editingId = null;
 
   clearForm();
   persist();
   render();
+}
+
+function saveUpdateLog() {
+  const participantName = document.getElementById('logParticipant').value;
+  const date = document.getElementById('logDate').value;
+
+  if (!participantName || !date) {
+    alert('Participant and update date are required.');
+    return;
+  }
+
+  const participant = records.find(r => r.participantName === participantName);
+
+  updateLogs.unshift({
+    id: createId(),
+    participantName,
+    stateId: participant?.stateId || '',
+    date,
+    type: document.getElementById('logType').value,
+    progressRating: document.getElementById('logProgressRating').value,
+    summary: document.getElementById('logSummary').value.trim(),
+    nextStep: document.getElementById('logNextStep').value.trim(),
+    enteredBy: document.getElementById('logEnteredBy').value.trim()
+  });
+
+  clearLogForm();
+  persist();
+  render();
+}
+
+function clearLogForm() {
+  document.getElementById('logParticipant').value = '';
+  document.getElementById('logDate').valueAsDate = new Date();
+  document.getElementById('logType').value = 'General Update';
+  document.getElementById('logEnteredBy').value = '';
+  document.getElementById('logProgressRating').value = '';
+  document.getElementById('logSummary').value = '';
+  document.getElementById('logNextStep').value = '';
+}
+
+function deleteUpdateLog(id) {
+  if (!confirm('Delete this update log entry?')) return;
+
+  updateLogs = updateLogs.filter(log => log.id !== id);
+
+  persist();
+  render();
+}
+
+function addUpdateForParticipant(name) {
+  document.getElementById('logParticipant').value = name;
+  document.getElementById('logDate').valueAsDate = new Date();
+  document.getElementById('logType').value = 'Progress Update';
+
+  window.scrollTo({ top: 260, behavior: 'smooth' });
+}
+
+function viewLogForParticipant(name) {
+  document.getElementById('logFilterParticipant').value = name;
+  renderUpdateLogs();
+
+  document.getElementById('updateLogRows').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function getLastUpdateDate(participantName) {
+  const logs = updateLogs
+    .filter(log => log.participantName === participantName)
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  return logs[0]?.date || '';
 }
 
 function editRecord(id) {
@@ -479,7 +670,8 @@ function compareValues(a, b, column, direction) {
     'startDate',
     'endDate',
     'caseNoteDate',
-    'siteVisitDate'
+    'siteVisitDate',
+    'lastUpdateDate'
   ];
 
   if (numberColumns.includes(column)) {
@@ -512,10 +704,10 @@ function updateSortIndicators() {
     'endDate',
     'caseNoteDate',
     'siteVisitDate',
-    'approvedHours',
     'hoursCompleted',
     'hoursRemaining',
     'successRating',
+    'lastUpdateDate',
     'wexStatus'
   ];
 
@@ -556,7 +748,29 @@ function renderSummary(rowsForSummary) {
   `).join('');
 }
 
+function updateParticipantDropdowns() {
+  const participantOptions = records
+    .slice()
+    .sort((a, b) => String(a.participantName || '').localeCompare(String(b.participantName || '')))
+    .map(r => `<option value="${escapeHtml(r.participantName)}">${escapeHtml(r.participantName)}</option>`)
+    .join('');
+
+  document.getElementById('logParticipant').innerHTML =
+    `<option value="">Select participant</option>` + participantOptions;
+
+  const currentLogFilter = document.getElementById('logFilterParticipant').value;
+
+  document.getElementById('logFilterParticipant').innerHTML =
+    `<option value="all">All participants</option>` + participantOptions;
+
+  if (currentLogFilter === 'all' || records.some(r => r.participantName === currentLogFilter)) {
+    document.getElementById('logFilterParticipant').value = currentLogFilter;
+  }
+}
+
 function render() {
+  updateParticipantDropdowns();
+
   const q = document.getElementById('searchBox').value.toLowerCase();
   const statusFilter = document.getElementById('statusFilter').value;
   const sortColumn = document.getElementById('sortColumn').value;
@@ -571,6 +785,7 @@ function render() {
       approvedHours,
       hoursCompleted,
       hoursRemaining: Math.max(approvedHours - hoursCompleted, 0),
+      lastUpdateDate: getLastUpdateDate(record.participantName),
       wexStatus: getWexStatus(record)
     };
   });
@@ -614,27 +829,60 @@ function render() {
       <td class="p-3">${formatDate(r.endDate)}</td>
       <td class="p-3">${formatDate(r.caseNoteDate)}</td>
       <td class="p-3">${formatDate(r.siteVisitDate)}</td>
-      <td class="p-3">${r.approvedHours || ''}</td>
       <td class="p-3 font-semibold">${r.hoursCompleted || ''}</td>
       <td class="p-3 font-semibold">${r.hoursRemaining}</td>
       <td class="p-3">${escapeHtml(r.cnContacted || '')}</td>
       <td class="p-3">${escapeHtml(r.endedSuccessfully || '')}</td>
       <td class="p-3 font-semibold">${escapeHtml(r.successRating || '')}</td>
+      <td class="p-3">${formatDate(r.lastUpdateDate)}</td>
       <td class="p-3 font-bold">${escapeHtml(r.wexStatus)}</td>
-      <td class="p-3">${escapeHtml(r.notes || '')}</td>
       <td class="p-3 no-print">
         <button onclick="editRecord('${escapeAttr(r.id)}')" class="text-blue-700 underline mr-2">Edit</button>
+        <button onclick="addUpdateForParticipant('${escapeAttr(r.participantName)}')" class="text-emerald-700 underline mr-2">Add Update</button>
+        <button onclick="viewLogForParticipant('${escapeAttr(r.participantName)}')" class="text-purple-700 underline mr-2">View Log</button>
         <button onclick="deleteRecord('${escapeAttr(r.id)}')" class="text-red-700 underline">Delete</button>
       </td>
     </tr>
   `).join('') || `
     <tr>
-      <td colspan="17" class="p-4 text-slate-500">No WEX records match the selected filters.</td>
+      <td colspan="16" class="p-4 text-slate-500">No WEX records match the selected filters.</td>
     </tr>
   `;
 
   renderSummary(rows);
   updateSortIndicators();
+  renderUpdateLogs();
+}
+
+function renderUpdateLogs() {
+  const filter = document.getElementById('logFilterParticipant').value;
+
+  let rows = [...updateLogs];
+
+  if (filter !== 'all') {
+    rows = rows.filter(log => log.participantName === filter);
+  }
+
+  rows.sort((a, b) => b.date.localeCompare(a.date));
+
+  document.getElementById('updateLogRows').innerHTML = rows.map(log => `
+    <tr class="border-b">
+      <td class="p-3">${formatDate(log.date)}</td>
+      <td class="p-3 font-semibold">${escapeHtml(log.participantName || '')}</td>
+      <td class="p-3">${escapeHtml(log.type || '')}</td>
+      <td class="p-3 font-semibold">${escapeHtml(log.progressRating || '')}</td>
+      <td class="p-3">${escapeHtml(log.summary || '')}</td>
+      <td class="p-3">${escapeHtml(log.nextStep || '')}</td>
+      <td class="p-3">${escapeHtml(log.enteredBy || '')}</td>
+      <td class="p-3 no-print">
+        <button onclick="deleteUpdateLog('${escapeAttr(log.id)}')" class="text-red-700 underline">Delete</button>
+      </td>
+    </tr>
+  `).join('') || `
+    <tr>
+      <td colspan="8" class="p-4 text-slate-500">No update logs found.</td>
+    </tr>
+  `;
 }
 
 function resetFilters() {
@@ -644,6 +892,11 @@ function resetFilters() {
   document.getElementById('sortDirection').value = 'asc';
 
   render();
+}
+
+function resetLogFilter() {
+  document.getElementById('logFilterParticipant').value = 'all';
+  renderUpdateLogs();
 }
 
 function exportCSV() {
@@ -662,6 +915,7 @@ function exportCSV() {
     'CN Contacted During WEX',
     'Ended Successfully',
     'Success Rating',
+    'Last Update Log Date',
     'WEX Status',
     'Notes'
   ];
@@ -689,6 +943,7 @@ function exportCSV() {
       record.cnContacted || '',
       record.endedSuccessfully || '',
       record.successRating || '',
+      getLastUpdateDate(record.participantName),
       wexStatus,
       record.notes || ''
     ]);
@@ -701,12 +956,52 @@ function exportCSV() {
   downloadFile('wex-tracker.csv', csv, 'text/csv');
 }
 
+function exportLogCSV() {
+  const header = [
+    'Date Added',
+    'State ID',
+    'Participant Name',
+    'Update Type',
+    'Progress Rating',
+    'Summary',
+    'Next Step',
+    'Entered By'
+  ];
+
+  const lines = [header];
+
+  updateLogs.forEach(log => {
+    lines.push([
+      log.date || '',
+      log.stateId || '',
+      log.participantName || '',
+      log.type || '',
+      log.progressRating || '',
+      log.summary || '',
+      log.nextStep || '',
+      log.enteredBy || ''
+    ]);
+  });
+
+  const csv = lines
+    .map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+
+  downloadFile('wex-update-log.csv', csv, 'text/csv');
+}
+
 function exportJSON() {
   const date = new Date().toISOString().slice(0, 10);
 
+  const backup = {
+    records,
+    updateLogs,
+    exportedAt: new Date().toISOString()
+  };
+
   downloadFile(
     `wex-tracker-backup-${date}.json`,
-    JSON.stringify(records, null, 2),
+    JSON.stringify(backup, null, 2),
     'application/json'
   );
 }
@@ -722,16 +1017,24 @@ function importJSON(event) {
     try {
       const imported = JSON.parse(reader.result);
 
-      if (!Array.isArray(imported)) {
+      if (Array.isArray(imported)) {
+        if (!confirm('This looks like an older WEX backup. Restore it and replace current WEX participant data? Update logs will remain unchanged.')) {
+          return;
+        }
+
+        records = imported;
+      } else if (imported.records && imported.updateLogs) {
+        if (!confirm('Restore this backup and replace current WEX data and update logs?')) {
+          return;
+        }
+
+        records = imported.records;
+        updateLogs = imported.updateLogs;
+      } else {
         alert('Invalid backup file.');
         return;
       }
 
-      if (!confirm('Restore this backup and replace current WEX data?')) {
-        return;
-      }
-
-      records = imported;
       persist();
       render();
     } catch {
@@ -753,10 +1056,12 @@ function downloadFile(filename, content, type) {
 }
 
 function clearAllData() {
-  if (!confirm('Clear all WEX tracker data from this browser?')) return;
+  if (!confirm('Clear all WEX tracker data and update logs from this browser?')) return;
   if (!confirm('This cannot be undone unless you have a JSON backup. Continue?')) return;
 
   records = [];
+  updateLogs = [];
+
   persist();
   render();
 }
