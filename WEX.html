@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>WEX Tracker</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+
+      body {
+        background: white !important;
+      }
+
+      table {
+        font-size: 11px;
+      }
+    }
+
+    th {
+      white-space: nowrap;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-100 text-slate-900">
+  <div class="max-w-7xl mx-auto p-4 md:p-6">
+
+    <header class="mb-5">
+      <h1 class="text-2xl md:text-3xl font-bold">Work Experience Tracker</h1>
+      <p class="text-sm text-slate-600 mt-1">
+        Track WEX participants, worksites, case notes, site visits, completed hours, remaining hours, CN contact, completion status, and success rating.
+      </p>
+
+      <div class="flex flex-wrap gap-2 mt-4 no-print">
+        <a href="index.html" class="bg-slate-200 text-slate-900 rounded-lg px-4 py-2 font-semibold">
+          30-Day Tracker
+        </a>
+
+        <a href="wex.html" class="bg-blue-700 text-white rounded-lg px-4 py-2 font-semibold">
+          WEX Tracker
+        </a>
+      </div>
+    </header>
+
+    <section class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-5" id="summaryCards"></section>
+
+    <section class="bg-white rounded-2xl shadow p-4 mb-5 no-print">
+      <h2 class="text-lg font-semibold mb-3">Add / Update WEX Participant</h2>
+
+      <div class="grid md:grid-cols-6 gap-3">
+        <input id="stateId" class="border rounded-lg p-2" placeholder="State ID" />
+
+        <input id="participantName" class="border rounded-lg p-2 md:col-span-2" placeholder="Participant Name" />
+
+        <input id="worksite" class="border rounded-lg p-2 md:col-span-2" placeholder="Worksite Name" />
+
+        <input id="assignedCN" class="border rounded-lg p-2" placeholder="Assigned CN" />
+
+        <label class="text-sm">
+          WEX Start Date
+          <input id="startDate" type="date" class="border rounded-lg p-2 w-full mt-1" />
+        </label>
+
+        <label class="text-sm">
+          WEX End Date
+          <input id="endDate" type="date" class="border rounded-lg p-2 w-full mt-1" />
+        </label>
+
+        <label class="text-sm">
+          Last Case Note Date
+          <input id="caseNoteDate" type="date" class="border rounded-lg p-2 w-full mt-1" />
+        </label>
+
+        <label class="text-sm">
+          Last Site Visit Date
+          <input id="siteVisitDate" type="date" class="border rounded-lg p-2 w-full mt-1" />
+        </label>
+
+        <input id="approvedHours" type="number" class="border rounded-lg p-2" placeholder="Approved Hours" />
+
+        <input id="hoursCompleted" type="number" class="border rounded-lg p-2" placeholder="Hours Completed" />
+
+        <select id="cnContacted" class="border rounded-lg p-2">
+          <option value="">CN Contacted Participant During WEX?</option>
+          <option>Yes</option>
+          <option>No</option>
+          <option>Pending</option>
+        </select>
+
+        <select id="endedSuccessfully" class="border rounded-lg p-2">
+          <option value="">Did WEX End Successfully?</option>
+          <option>Still Active</option>
+          <option>Yes</option>
+          <option>No</option>
+        </select>
+
+        <select id="successRating" class="border rounded-lg p-2">
+          <option value="">Success Rating 1-10</option>
+          <option>1</option>
+          <option>2</option>
+          <option>3</option>
+          <option>4</option>
+          <option>5</option>
+          <option>6</option>
+          <option>7</option>
+          <option>8</option>
+          <option>9</option>
+          <option>10</option>
+        </select>
+
+        <input id="notes" class="border rounded-lg p-2 md:col-span-3" placeholder="Brief WEX Notes" />
+
+        <button onclick="saveRecord()" class="bg-blue-700 text-white rounded-lg px-4 py-2 font-semibold">
+          Save WEX Record
+        </button>
+
+        <button onclick="clearForm()" class="border rounded-lg px-4 py-2">
+          Clear Form
+        </button>
+      </div>
+
+      <div id="saveStatus" class="text-sm text-slate-600 mt-3"></div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow p-4 mb-5 no-print">
+      <div class="grid md:grid-cols-6 gap-3">
+        <input id="searchBox" oninput="render()" class="border rounded-lg p-2 md:col-span-2" placeholder="Search participant, State ID, worksite, or CN" />
+
+        <select id="statusFilter" onchange="render()" class="border rounded-lg p-2">
+          <option value="all">All WEX Statuses</option>
+          <option value="Active">Active</option>
+          <option value="Ending Soon">Ending Soon</option>
+          <option value="Completed Successfully">Completed Successfully</option>
+          <option value="Completed Unsuccessfully">Completed Unsuccessfully</option>
+          <option value="Needs Site Visit">Needs Site Visit</option>
+          <option value="Needs CN Contact">Needs CN Contact</option>
+        </select>
+
+        <select id="sortColumn" onchange="render()" class="border rounded-lg p-2">
+          <option value="default">Default Sort</option>
+          <option value="stateId">State ID</option>
+          <option value="participantName">Participant Name</option>
+          <option value="worksite">Worksite</option>
+          <option value="assignedCN">Assigned CN</option>
+          <option value="startDate">Start Date</option>
+          <option value="endDate">End Date</option>
+          <option value="caseNoteDate">Last Case Note Date</option>
+          <option value="siteVisitDate">Last Site Visit Date</option>
+          <option value="approvedHours">Approved Hours</option>
+          <option value="hoursCompleted">Hours Completed</option>
+          <option value="hoursRemaining">Hours Remaining</option>
+          <option value="successRating">Success Rating</option>
+          <option value="wexStatus">WEX Status</option>
+        </select>
+
+        <select id="sortDirection" onchange="render()" class="border rounded-lg p-2">
+          <option value="asc">Ascending</option>
+          <option value="desc">Descending</option>
+        </select>
+
+        <button onclick="resetFilters()" class="border rounded-lg px-3 py-2 bg-slate-50 hover:bg-slate-100">
+          Reset Filters
+        </button>
+      </div>
+
+      <div class="flex flex-wrap gap-2 mt-4">
+        <button onclick="exportCSV()" class="border rounded-lg px-3 py-2">
+          Export CSV
+        </button>
+
+        <button onclick="exportJSON()" class="border rounded-lg px-3 py-2">
+          Download Backup JSON
+        </button>
+
+        <label class="border rounded-lg px-3 py-2 cursor-pointer">
+          Restore Backup JSON
+          <input type="file" accept="application/json" onchange="importJSON(event)" class="hidden" />
+        </label>
+
+        <button onclick="window.print()" class="border rounded-lg px-3 py-2">
+          Print
+        </button>
+
+        <button onclick="clearAllData()" class="border border-red-300 text-red-700 rounded-lg px-3 py-2">
+          Clear All WEX Data
+        </button>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow overflow-hidden mb-5">
+      <div class="p-4 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+        <h2 class="text-lg font-semibold">WEX Participant List</h2>
+        <p class="text-sm text-slate-500">
+          Yellow = ending soon. Red/Orange = missing site visit or CN contact.
+        </p>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-800 text-white">
+            <tr>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('stateId')">State ID <span id="sort-stateId"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('participantName')">Participant <span id="sort-participantName"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('worksite')">Worksite <span id="sort-worksite"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('assignedCN')">Assigned CN <span id="sort-assignedCN"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('startDate')">Start Date <span id="sort-startDate"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('endDate')">End Date <span id="sort-endDate"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('caseNoteDate')">Last Case Note <span id="sort-caseNoteDate"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('siteVisitDate')">Last Site Visit <span id="sort-siteVisitDate"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('approvedHours')">Approved Hours <span id="sort-approvedHours"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('hoursCompleted')">Hours Completed <span id="sort-hoursCompleted"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('hoursRemaining')">Hours Remaining <span id="sort-hoursRemaining"></span></th>
+              <th class="text-left p-3">CN Contacted?</th>
+              <th class="text-left p-3">Ended Successfully?</th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('successRating')">Rating <span id="sort-successRating"></span></th>
+              <th class="text-left p-3 cursor-pointer" onclick="setSort('wexStatus')">WEX Status <span id="sort-wexStatus"></span></th>
+              <th class="text-left p-3">Notes</th>
+              <th class="text-left p-3 no-print">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+<script>
+const STORAGE_KEY = 'wex_tracker_v1';
+
+let records = loadRecords();
+let editingId = null;
+
+function loadRecords() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+
+  if (!saved) return [];
+
+  try {
+    return JSON.parse(saved);
+  } catch {
+    return [];
+  }
+}
+
+function persist() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+
+  const status = document.getElementById('saveStatus');
+  if (status) {
+    status.textContent = 'Last saved: ' + new Date().toLocaleString();
+  }
+}
+
+function createId() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  return String(Date.now()) + String(Math.random()).slice(2);
+}
+
+function todayStart() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function parseDate(value) {
+  if (!value) return null;
+
+  const d = new Date(value + 'T00:00:00');
+
+  if (isNaN(d)) return null;
+
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function formatDate(value) {
+  const d = parseDate(value);
+
+  if (!d) return '';
+
+  return d.toLocaleDateString();
+}
+
+function daysUntil(value) {
+  const d = parseDate(value);
+
+  if (!d) return null;
+
+  return Math.floor((d - todayStart()) / 86400000);
+}
+
+function getWexStatus(record) {
+  if (record.endedSuccessfully === 'Yes') {
+    return 'Completed Successfully';
+  }
+
+  if (record.endedSuccessfully === 'No') {
+    return 'Completed Unsuccessfully';
+  }
+
+  if (!record.siteVisitDate) {
+    return 'Needs Site Visit';
+  }
+
+  if (!record.cnContacted || record.cnContacted === 'No') {
+    return 'Needs CN Contact';
+  }
+
+  const remainingDays = daysUntil(record.endDate);
+
+  if (remainingDays !== null && remainingDays >= 0 && remainingDays <= 14) {
+    return 'Ending Soon';
+  }
+
+  return 'Active';
+}
+
+function rowClass(status) {
+  if (status === 'Completed Successfully') return 'bg-emerald-50';
+  if (status === 'Completed Unsuccessfully') return 'bg-red-100';
+  if (status === 'Ending Soon') return 'bg-yellow-100';
+  if (status === 'Needs Site Visit') return 'bg-red-100';
+  if (status === 'Needs CN Contact') return 'bg-orange-100';
+
+  return '';
+}
+
+function saveRecord() {
+  const participantName = document.getElementById('participantName').value.trim();
+
+  if (!participantName) {
+    alert('Participant name is required.');
+    return;
+  }
+
+  const approvedHours = Number(document.getElementById('approvedHours').value || 0);
+  const hoursCompleted = Number(document.getElementById('hoursCompleted').value || 0);
+
+  const record = {
+    id: editingId || createId(),
+    stateId: document.getElementById('stateId').value.trim(),
+    participantName,
+    worksite: document.getElementById('worksite').value.trim(),
+    assignedCN: document.getElementById('assignedCN').value.trim(),
+    startDate: document.getElementById('startDate').value,
+    endDate: document.getElementById('endDate').value,
+    caseNoteDate: document.getElementById('caseNoteDate').value,
+    siteVisitDate: document.getElementById('siteVisitDate').value,
+    approvedHours,
+    hoursCompleted,
+    hoursRemaining: Math.max(approvedHours - hoursCompleted, 0),
+    cnContacted: document.getElementById('cnContacted').value,
+    endedSuccessfully: document.getElementById('endedSuccessfully').value,
+    successRating: document.getElementById('successRating').value,
+    notes: document.getElementById('notes').value.trim()
+  };
+
+  const existingIndex = records.findIndex(r => r.id === record.id);
+
+  if (existingIndex >= 0) {
+    records[existingIndex] = record;
+  } else {
+    const duplicateIndex = records.findIndex(r =>
+      record.stateId
+        ? String(r.stateId || '') === String(record.stateId)
+        : String(r.participantName || '').toLowerCase() === record.participantName.toLowerCase()
+    );
+
+    if (duplicateIndex >= 0) {
+      if (!confirm('A record for this participant already exists. Replace it?')) {
+        return;
+      }
+
+      records[duplicateIndex] = record;
+    } else {
+      records.push(record);
+    }
+  }
+
+  editingId = null;
+
+  clearForm();
+  persist();
+  render();
+}
+
+function editRecord(id) {
+  const record = records.find(r => r.id === id);
+
+  if (!record) return;
+
+  editingId = id;
+
+  document.getElementById('stateId').value = record.stateId || '';
+  document.getElementById('participantName').value = record.participantName || '';
+  document.getElementById('worksite').value = record.worksite || '';
+  document.getElementById('assignedCN').value = record.assignedCN || '';
+  document.getElementById('startDate').value = record.startDate || '';
+  document.getElementById('endDate').value = record.endDate || '';
+  document.getElementById('caseNoteDate').value = record.caseNoteDate || '';
+  document.getElementById('siteVisitDate').value = record.siteVisitDate || '';
+  document.getElementById('approvedHours').value = record.approvedHours || '';
+  document.getElementById('hoursCompleted').value = record.hoursCompleted || '';
+  document.getElementById('cnContacted').value = record.cnContacted || '';
+  document.getElementById('endedSuccessfully').value = record.endedSuccessfully || '';
+  document.getElementById('successRating').value = record.successRating || '';
+  document.getElementById('notes').value = record.notes || '';
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function deleteRecord(id) {
+  if (!confirm('Delete this WEX record?')) return;
+
+  records = records.filter(r => r.id !== id);
+
+  persist();
+  render();
+}
+
+function clearForm() {
+  editingId = null;
+
+  [
+    'stateId',
+    'participantName',
+    'worksite',
+    'assignedCN',
+    'startDate',
+    'endDate',
+    'caseNoteDate',
+    'siteVisitDate',
+    'approvedHours',
+    'hoursCompleted',
+    'notes'
+  ].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+
+  document.getElementById('cnContacted').value = '';
+  document.getElementById('endedSuccessfully').value = '';
+  document.getElementById('successRating').value = '';
+}
+
+function setSort(column) {
+  const sortColumn = document.getElementById('sortColumn');
+  const sortDirection = document.getElementById('sortDirection');
+
+  if (sortColumn.value === column) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortColumn.value = column;
+    sortDirection.value = 'asc';
+  }
+
+  render();
+}
+
+function compareValues(a, b, column, direction) {
+  let valueA = a[column];
+  let valueB = b[column];
+
+  const numberColumns = [
+    'approvedHours',
+    'hoursCompleted',
+    'hoursRemaining',
+    'successRating'
+  ];
+
+  const dateColumns = [
+    'startDate',
+    'endDate',
+    'caseNoteDate',
+    'siteVisitDate'
+  ];
+
+  if (numberColumns.includes(column)) {
+    valueA = valueA === '' || valueA === null || valueA === undefined ? -1 : Number(valueA);
+    valueB = valueB === '' || valueB === null || valueB === undefined ? -1 : Number(valueB);
+  } else if (dateColumns.includes(column)) {
+    valueA = valueA ? new Date(valueA).getTime() : 0;
+    valueB = valueB ? new Date(valueB).getTime() : 0;
+  } else {
+    valueA = String(valueA || '').toLowerCase();
+    valueB = String(valueB || '').toLowerCase();
+  }
+
+  if (valueA < valueB) return direction === 'asc' ? -1 : 1;
+  if (valueA > valueB) return direction === 'asc' ? 1 : -1;
+
+  return 0;
+}
+
+function updateSortIndicators() {
+  const sortColumn = document.getElementById('sortColumn').value;
+  const sortDirection = document.getElementById('sortDirection').value;
+
+  const columns = [
+    'stateId',
+    'participantName',
+    'worksite',
+    'assignedCN',
+    'startDate',
+    'endDate',
+    'caseNoteDate',
+    'siteVisitDate',
+    'approvedHours',
+    'hoursCompleted',
+    'hoursRemaining',
+    'successRating',
+    'wexStatus'
+  ];
+
+  columns.forEach(column => {
+    const el = document.getElementById('sort-' + column);
+
+    if (!el) return;
+
+    el.textContent = sortColumn === column
+      ? sortDirection === 'asc'
+        ? '▲'
+        : '▼'
+      : '';
+  });
+}
+
+function renderSummary(rowsForSummary) {
+  const source = rowsForSummary || records;
+
+  const enriched = source.map(r => ({
+    ...r,
+    wexStatus: getWexStatus(r)
+  }));
+
+  const cards = [
+    ['Total WEX', enriched.length, 'bg-slate-800 text-white'],
+    ['Active', enriched.filter(r => r.wexStatus === 'Active').length, 'bg-blue-700 text-white'],
+    ['Ending Soon', enriched.filter(r => r.wexStatus === 'Ending Soon').length, 'bg-yellow-500 text-slate-900'],
+    ['Needs Site Visit', enriched.filter(r => r.wexStatus === 'Needs Site Visit').length, 'bg-red-700 text-white'],
+    ['Needs CN Contact', enriched.filter(r => r.wexStatus === 'Needs CN Contact').length, 'bg-orange-600 text-white']
+  ];
+
+  document.getElementById('summaryCards').innerHTML = cards.map(card => `
+    <div class="rounded-2xl shadow p-4 ${card[2]}">
+      <div class="text-sm opacity-90">${card[0]}</div>
+      <div class="text-3xl font-bold">${card[1]}</div>
+    </div>
+  `).join('');
+}
+
+function render() {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  const statusFilter = document.getElementById('statusFilter').value;
+  const sortColumn = document.getElementById('sortColumn').value;
+  const sortDirection = document.getElementById('sortDirection').value;
+
+  let rows = records.map(record => {
+    const approvedHours = Number(record.approvedHours || 0);
+    const hoursCompleted = Number(record.hoursCompleted || 0);
+
+    return {
+      ...record,
+      approvedHours,
+      hoursCompleted,
+      hoursRemaining: Math.max(approvedHours - hoursCompleted, 0),
+      wexStatus: getWexStatus(record)
+    };
+  });
+
+  rows = rows
+    .filter(r => {
+      return !q ||
+        String(r.stateId || '').toLowerCase().includes(q) ||
+        String(r.participantName || '').toLowerCase().includes(q) ||
+        String(r.worksite || '').toLowerCase().includes(q) ||
+        String(r.assignedCN || '').toLowerCase().includes(q) ||
+        String(r.wexStatus || '').toLowerCase().includes(q);
+    })
+    .filter(r => statusFilter === 'all' || r.wexStatus === statusFilter);
+
+  if (sortColumn === 'default') {
+    rows.sort((a, b) => {
+      const rank = {
+        'Needs Site Visit': 0,
+        'Needs CN Contact': 1,
+        'Ending Soon': 2,
+        'Active': 3,
+        'Completed Unsuccessfully': 4,
+        'Completed Successfully': 5
+      };
+
+      return rank[a.wexStatus] - rank[b.wexStatus] ||
+        String(a.participantName || '').localeCompare(String(b.participantName || ''));
+    });
+  } else {
+    rows.sort((a, b) => compareValues(a, b, sortColumn, sortDirection));
+  }
+
+  document.getElementById('rows').innerHTML = rows.map(r => `
+    <tr class="border-b ${rowClass(r.wexStatus)}">
+      <td class="p-3">${escapeHtml(r.stateId || '')}</td>
+      <td class="p-3 font-semibold">${escapeHtml(r.participantName || '')}</td>
+      <td class="p-3">${escapeHtml(r.worksite || '')}</td>
+      <td class="p-3">${escapeHtml(r.assignedCN || '')}</td>
+      <td class="p-3">${formatDate(r.startDate)}</td>
+      <td class="p-3">${formatDate(r.endDate)}</td>
+      <td class="p-3">${formatDate(r.caseNoteDate)}</td>
+      <td class="p-3">${formatDate(r.siteVisitDate)}</td>
+      <td class="p-3">${r.approvedHours || ''}</td>
+      <td class="p-3 font-semibold">${r.hoursCompleted || ''}</td>
+      <td class="p-3 font-semibold">${r.hoursRemaining}</td>
+      <td class="p-3">${escapeHtml(r.cnContacted || '')}</td>
+      <td class="p-3">${escapeHtml(r.endedSuccessfully || '')}</td>
+      <td class="p-3 font-semibold">${escapeHtml(r.successRating || '')}</td>
+      <td class="p-3 font-bold">${escapeHtml(r.wexStatus)}</td>
+      <td class="p-3">${escapeHtml(r.notes || '')}</td>
+      <td class="p-3 no-print">
+        <button onclick="editRecord('${escapeAttr(r.id)}')" class="text-blue-700 underline mr-2">Edit</button>
+        <button onclick="deleteRecord('${escapeAttr(r.id)}')" class="text-red-700 underline">Delete</button>
+      </td>
+    </tr>
+  `).join('') || `
+    <tr>
+      <td colspan="17" class="p-4 text-slate-500">No WEX records match the selected filters.</td>
+    </tr>
+  `;
+
+  renderSummary(rows);
+  updateSortIndicators();
+}
+
+function resetFilters() {
+  document.getElementById('searchBox').value = '';
+  document.getElementById('statusFilter').value = 'all';
+  document.getElementById('sortColumn').value = 'default';
+  document.getElementById('sortDirection').value = 'asc';
+
+  render();
+}
+
+function exportCSV() {
+  const header = [
+    'State ID',
+    'Participant Name',
+    'Worksite',
+    'Assigned CN',
+    'Start Date',
+    'End Date',
+    'Last Case Note Date',
+    'Last Site Visit Date',
+    'Approved Hours',
+    'Hours Completed',
+    'Hours Remaining',
+    'CN Contacted During WEX',
+    'Ended Successfully',
+    'Success Rating',
+    'WEX Status',
+    'Notes'
+  ];
+
+  const lines = [header];
+
+  records.forEach(record => {
+    const approvedHours = Number(record.approvedHours || 0);
+    const hoursCompleted = Number(record.hoursCompleted || 0);
+    const hoursRemaining = Math.max(approvedHours - hoursCompleted, 0);
+    const wexStatus = getWexStatus(record);
+
+    lines.push([
+      record.stateId || '',
+      record.participantName || '',
+      record.worksite || '',
+      record.assignedCN || '',
+      record.startDate || '',
+      record.endDate || '',
+      record.caseNoteDate || '',
+      record.siteVisitDate || '',
+      approvedHours,
+      hoursCompleted,
+      hoursRemaining,
+      record.cnContacted || '',
+      record.endedSuccessfully || '',
+      record.successRating || '',
+      wexStatus,
+      record.notes || ''
+    ]);
+  });
+
+  const csv = lines
+    .map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+
+  downloadFile('wex-tracker.csv', csv, 'text/csv');
+}
+
+function exportJSON() {
+  const date = new Date().toISOString().slice(0, 10);
+
+  downloadFile(
+    `wex-tracker-backup-${date}.json`,
+    JSON.stringify(records, null, 2),
+    'application/json'
+  );
+}
+
+function importJSON(event) {
+  const file = event.target.files[0];
+
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = () => {
+    try {
+      const imported = JSON.parse(reader.result);
+
+      if (!Array.isArray(imported)) {
+        alert('Invalid backup file.');
+        return;
+      }
+
+      if (!confirm('Restore this backup and replace current WEX data?')) {
+        return;
+      }
+
+      records = imported;
+      persist();
+      render();
+    } catch {
+      alert('Invalid JSON file.');
+    }
+  };
+
+  reader.readAsText(file);
+}
+
+function downloadFile(filename, content, type) {
+  const a = document.createElement('a');
+
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = filename;
+  a.click();
+
+  URL.revokeObjectURL(a.href);
+}
+
+function clearAllData() {
+  if (!confirm('Clear all WEX tracker data from this browser?')) return;
+  if (!confirm('This cannot be undone unless you have a JSON backup. Continue?')) return;
+
+  records = [];
+  persist();
+  render();
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#039;',
+    '"': '&quot;'
+  }[c]));
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value).replace(/`/g, '&#096;');
+}
+
+render();
+</script>
+</body>
+</html>
