@@ -7,6 +7,7 @@
   <title>WEX Tracker</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <style>
     @media print {
@@ -224,9 +225,16 @@
       </div>
 
       <div class="flex flex-wrap gap-2 mt-4">
-        <button onclick="exportCSV()" class="border rounded-lg px-3 py-2">
-          Export WEX CSV
-        </button>
+        <div class="flex flex-wrap gap-2 mt-4">
+  <label class="border rounded-lg px-3 py-2 cursor-pointer bg-slate-50 hover:bg-slate-100">
+    Import Excel
+    <input type="file" accept=".xlsx,.xls" onchange="importExcel(event)" class="hidden" />
+  </label>
+
+  <button onclick="exportCSV()" class="border rounded-lg px-3 py-2">
+    Export WEX CSV
+  </button>
+          <div id="importResult" class="text-sm text-slate-700 mt-3"></div>
 
         <button onclick="exportLogCSV()" class="border rounded-lg px-3 py-2">
           Export Update Log CSV
@@ -897,6 +905,277 @@ function resetFilters() {
 function resetLogFilter() {
   document.getElementById('logFilterParticipant').value = 'all';
   renderUpdateLogs();
+}
+  function normalizeHeader(value) {
+  return String(value || '')
+    .replace(/\n/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function cleanText(value) {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function getValueByHeader(row, headerMap, possibleNames) {
+  for (const name of possibleNames) {
+    const key = normalizeHeader(name);
+
+    if (headerMap[key] !== undefined) {
+      return row[headerMap[key]];
+    }
+  }
+
+  return '';
+}
+
+function parseExcelDate(value) {
+  if (!value) return '';
+
+  if (value instanceof Date && !isNaN(value)) {
+    return toISODate(value);
+  }
+
+  if (typeof value === 'number') {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (!parsed) return '';
+
+    const d = new Date(parsed.y, parsed.m - 1, parsed.d);
+    return toISODate(d);
+  }
+
+  const cleaned = String(value).trim();
+
+  if (!cleaned) return '';
+
+  const direct = new Date(cleaned);
+
+  if (!isNaN(direct)) {
+    return toISODate(direct);
+  }
+
+  const parts = cleaned.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+
+  if (parts) {
+    const d = new Date(Number(parts[3]), Number(parts[1]) - 1, Number(parts[2]));
+    return toISODate(d);
+  }
+
+  return '';
+}
+
+function toISODate(value) {
+  const d = value instanceof Date ? value : new Date(value);
+
+  if (isNaN(d)) return '';
+
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function findExcelHeaderRow(rows) {
+  for (let i = 0; i < Math.min(rows.length, 25); i++) {
+    const normalized = rows[i].map(normalizeHeader);
+
+    const hasStateId = normalized.includes('state id');
+    const hasName = normalized.includes('name');
+    const hasBeginDate = normalized.includes('actual begin date');
+    const hasProjectedEndDate = normalized.includes('projected end date');
+
+    if (hasStateId && hasName && hasBeginDate && hasProjectedEndDate) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+function mapCompletionStatus(value) {
+  const status = cleanText(value).toLowerCase();
+
+  if (!status) return 'Still Active';
+
+  if (
+    status.includes('complete') ||
+    status.includes('successful') ||
+    status === 'yes'
+  ) {
+    return 'Yes';
+  }
+
+  if (
+    status.includes('unsuccessful') ||
+    status.includes('failed') ||
+    status.includes('did not complete') ||
+    status.includes('no')
+  ) {
+    return 'No';
+  }
+
+  if (
+    status.includes('active') ||
+    status.includes('in progress') ||
+    status.includes('open')
+  ) {
+    return 'Still Active';
+  }
+
+  return cleanText(value);
+}
+
+function importExcel(event) {
+  const file = event.target.files[0];
+
+  if (!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    try {
+      const workbook = XLSX.read(e.target.result, {
+        type: 'array',
+        cellDates: true
+      });
+
+      const firstSheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[firstSheetName];
+
+      const rows = XLSX.utils.sheet_to_json(sheet, {
+        header: 1,
+        defval: ''
+      });
+
+      if (!rows.length) {
+        alert('No rows found in the Excel file.');
+        return;
+      }
+
+      const headerRowIndex = findExcelHeaderRow(rows);
+
+      if (headerRowIndex === -1) {
+        alert('Could not find the required Excel headers: State ID, Name, Actual begin date, projected end date, completion status, provider, assigned staff.');
+        return;
+      }
+
+      const headers = rows[headerRowIndex].map(normalizeHeader);
+      const headerMap = {};
+
+      headers.forEach((header, index) => {
+        if (header) headerMap[header] = index;
+      });
+
+      let added = 0;
+      let updated = 0;
+      let skipped = 0;
+
+      for (let i = headerRowIndex + 1; i < rows.length; i++) {
+        const row = rows[i];
+
+        const stateId = cleanText(getValueByHeader(row, headerMap, [
+          'State ID'
+        ]));
+
+        const participantName = cleanText(getValueByHeader(row, headerMap, [
+          'Name',
+          'Participant Name'
+        ]));
+
+        const startDate = parseExcelDate(getValueByHeader(row, headerMap, [
+          'Actual begin date',
+          'Actual Begin Date'
+        ]));
+
+        const endDate = parseExcelDate(getValueByHeader(row, headerMap, [
+          'projected end date',
+          'Projected End Date'
+        ]));
+
+        const completionStatus = cleanText(getValueByHeader(row, headerMap, [
+          'completion status',
+          'Completion Status'
+        ]));
+
+        const provider = cleanText(getValueByHeader(row, headerMap, [
+          'provider',
+          'Provider'
+        ]));
+
+        const assignedStaff = cleanText(getValueByHeader(row, headerMap, [
+          'assigned staff',
+          'Assigned Staff'
+        ]));
+
+        if (!stateId && !participantName) {
+          skipped++;
+          continue;
+        }
+
+        const existingIndex = records.findIndex(record =>
+          stateId
+            ? String(record.stateId || '').trim() === stateId
+            : String(record.participantName || '').trim().toLowerCase() === participantName.toLowerCase()
+        );
+
+        const existing = existingIndex >= 0 ? records[existingIndex] : {};
+
+        const record = {
+          id: existing.id || createId(),
+          stateId,
+          participantName,
+          worksite: provider || existing.worksite || '',
+          assignedCN: assignedStaff || existing.assignedCN || '',
+          startDate: startDate || existing.startDate || '',
+          endDate: endDate || existing.endDate || '',
+          caseNoteDate: existing.caseNoteDate || '',
+          siteVisitDate: existing.siteVisitDate || '',
+          approvedHours: Number(existing.approvedHours || 0),
+          hoursCompleted: Number(existing.hoursCompleted || 0),
+          hoursRemaining: Math.max(Number(existing.approvedHours || 0) - Number(existing.hoursCompleted || 0), 0),
+          cnContacted: existing.cnContacted || '',
+          endedSuccessfully: mapCompletionStatus(completionStatus || existing.endedSuccessfully || ''),
+          successRating: existing.successRating || '',
+          notes: existing.notes || ''
+        };
+
+        if (existingIndex >= 0) {
+          records[existingIndex] = record;
+          updated++;
+        } else {
+          records.push(record);
+          added++;
+        }
+
+        updateLogs.unshift({
+          id: createId(),
+          participantName: record.participantName,
+          stateId: record.stateId,
+          date: new Date().toISOString().slice(0, 10),
+          type: 'Excel Import',
+          progressRating: '',
+          summary: 'WEX record imported or updated from Excel. Provider/worksite: ' + (record.worksite || 'Not listed') + '. Start date: ' + (record.startDate || 'Not listed') + '. Projected end date: ' + (record.endDate || 'Not listed') + '. Completion status: ' + (completionStatus || 'Not listed') + '.',
+          nextStep: '',
+          enteredBy: record.assignedCN || ''
+        });
+      }
+
+      persist();
+      render();
+
+      document.getElementById('importResult').innerHTML =
+        `<strong>Excel import complete.</strong> Added: ${added}. Updated: ${updated}. Skipped blank rows: ${skipped}.`;
+
+      event.target.value = '';
+    } catch (error) {
+      console.error(error);
+      alert('The Excel file could not be imported. Check that the file has the expected columns.');
+    }
+  };
+
+  reader.readAsArrayBuffer(file);
 }
 
 function exportCSV() {
