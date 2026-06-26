@@ -258,42 +258,17 @@
         </button>
       </div>
     </section>
+<section class="bg-white rounded-2xl shadow overflow-hidden mb-5">
+  <div class="p-4 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+    <h2 class="text-lg font-semibold">WEX Participant List</h2>
+    <p class="text-sm text-slate-500">
+      Select a participant name to expand the full WEX record.
+    </p>
+  </div>
 
-    <section class="bg-white rounded-2xl shadow overflow-hidden mb-5">
-      <div class="p-4 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-        <h2 class="text-lg font-semibold">WEX Participant List</h2>
-        <p class="text-sm text-slate-500">
-          Yellow = ending soon. Red/Orange = missing site visit or CN contact.
-        </p>
-      </div>
-
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-slate-800 text-white">
-            <tr>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('stateId')">State ID <span id="sort-stateId"></span></th>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('participantName')">Participant <span id="sort-participantName"></span></th>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('worksite')">Worksite <span id="sort-worksite"></span></th>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('assignedCN')">Assigned CN <span id="sort-assignedCN"></span></th>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('startDate')">Start Date <span id="sort-startDate"></span></th>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('endDate')">End Date <span id="sort-endDate"></span></th>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('caseNoteDate')">Last Case Note <span id="sort-caseNoteDate"></span></th>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('siteVisitDate')">Last Site Visit <span id="sort-siteVisitDate"></span></th>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('hoursCompleted')">Hours Completed <span id="sort-hoursCompleted"></span></th>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('hoursRemaining')">Hours Remaining <span id="sort-hoursRemaining"></span></th>
-              <th class="text-left p-3">CN Contacted?</th>
-              <th class="text-left p-3">Ended Successfully?</th>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('successRating')">Rating <span id="sort-successRating"></span></th>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('lastUpdateDate')">Last Update <span id="sort-lastUpdateDate"></span></th>
-              <th class="text-left p-3 cursor-pointer" onclick="setSort('wexStatus')">WEX Status <span id="sort-wexStatus"></span></th>
-              <th class="text-left p-3 no-print">Actions</th>
-            </tr>
-          </thead>
-
-          <tbody id="rows"></tbody>
-        </table>
-      </div>
-    </section>
+  <div id="rows" class="divide-y"></div>
+</section>
+    
 
     <section class="bg-white rounded-2xl shadow overflow-hidden">
       <div class="p-4 border-b flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -776,6 +751,38 @@ function updateParticipantDropdowns() {
   }
 }
 
+  function toggleParticipantDetails(id) {
+  const details = document.getElementById('details-' + id);
+  const arrow = document.getElementById('arrow-' + id);
+
+  if (!details) return;
+
+  const isHidden = details.classList.contains('hidden');
+
+  document.querySelectorAll('[id^="details-"]').forEach(el => {
+    el.classList.add('hidden');
+  });
+
+  document.querySelectorAll('[id^="arrow-"]').forEach(el => {
+    el.textContent = '▶';
+  });
+
+  if (isHidden) {
+    details.classList.remove('hidden');
+    if (arrow) arrow.textContent = '▼';
+  }
+}
+
+function compactStatusClass(status) {
+  if (status === 'Completed Successfully') return 'bg-emerald-100 text-emerald-900';
+  if (status === 'Completed Unsuccessfully') return 'bg-red-100 text-red-900';
+  if (status === 'Ending Soon') return 'bg-yellow-100 text-yellow-900';
+  if (status === 'Needs Site Visit') return 'bg-red-100 text-red-900';
+  if (status === 'Needs CN Contact') return 'bg-orange-100 text-orange-900';
+
+  return 'bg-blue-100 text-blue-900';
+}
+  
 function render() {
   updateParticipantDropdowns();
 
@@ -827,35 +834,149 @@ function render() {
     rows.sort((a, b) => compareValues(a, b, sortColumn, sortDirection));
   }
 
-  document.getElementById('rows').innerHTML = rows.map(r => `
-    <tr class="border-b ${rowClass(r.wexStatus)}">
-      <td class="p-3">${escapeHtml(r.stateId || '')}</td>
-      <td class="p-3 font-semibold">${escapeHtml(r.participantName || '')}</td>
-      <td class="p-3">${escapeHtml(r.worksite || '')}</td>
-      <td class="p-3">${escapeHtml(r.assignedCN || '')}</td>
-      <td class="p-3">${formatDate(r.startDate)}</td>
-      <td class="p-3">${formatDate(r.endDate)}</td>
-      <td class="p-3">${formatDate(r.caseNoteDate)}</td>
-      <td class="p-3">${formatDate(r.siteVisitDate)}</td>
-      <td class="p-3 font-semibold">${r.hoursCompleted || ''}</td>
-      <td class="p-3 font-semibold">${r.hoursRemaining}</td>
-      <td class="p-3">${escapeHtml(r.cnContacted || '')}</td>
-      <td class="p-3">${escapeHtml(r.endedSuccessfully || '')}</td>
-      <td class="p-3 font-semibold">${escapeHtml(r.successRating || '')}</td>
-      <td class="p-3">${formatDate(r.lastUpdateDate)}</td>
-      <td class="p-3 font-bold">${escapeHtml(r.wexStatus)}</td>
-      <td class="p-3 no-print">
-        <button onclick="editRecord('${escapeAttr(r.id)}')" class="text-blue-700 underline mr-2">Edit</button>
-        <button onclick="addUpdateForParticipant('${escapeAttr(r.participantName)}')" class="text-emerald-700 underline mr-2">Add Update</button>
-        <button onclick="viewLogForParticipant('${escapeAttr(r.participantName)}')" class="text-purple-700 underline mr-2">View Log</button>
-        <button onclick="deleteRecord('${escapeAttr(r.id)}')" class="text-red-700 underline">Delete</button>
-      </td>
-    </tr>
-  `).join('') || `
-    <tr>
-      <td colspan="16" class="p-4 text-slate-500">No WEX records match the selected filters.</td>
-    </tr>
-  `;
+ document.getElementById('rows').innerHTML = rows.map(r => `
+  <div class="bg-white">
+    <button
+      onclick="toggleParticipantDetails('${escapeAttr(r.id)}')"
+      class="w-full text-left p-4 hover:bg-slate-50 flex flex-col md:flex-row md:items-center md:justify-between gap-2"
+    >
+      <div class="flex items-center gap-3">
+        <span id="arrow-${escapeAttr(r.id)}" class="text-slate-500 font-bold">▶</span>
+
+        <div>
+          <div class="font-bold text-base">${escapeHtml(r.participantName || '')}</div>
+          <div class="text-xs text-slate-500">
+            State ID: ${escapeHtml(r.stateId || '')} · Worksite: ${escapeHtml(r.worksite || 'Not listed')}
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2 items-center">
+        <span class="text-xs rounded-full px-2 py-1 font-semibold ${compactStatusClass(r.wexStatus)}">
+          ${escapeHtml(r.wexStatus)}
+        </span>
+
+        <span class="text-xs text-slate-600">
+          ${r.hoursCompleted || 0}/${r.approvedHours || 0} hrs
+        </span>
+
+        <span class="text-xs text-slate-600">
+          End: ${formatDate(r.endDate) || '-'}
+        </span>
+      </div>
+    </button>
+
+    <div id="details-${escapeAttr(r.id)}" class="hidden px-4 pb-4">
+      <div class="rounded-xl border bg-slate-50 p-4">
+        <div class="grid md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <div class="text-xs text-slate-500">Participant</div>
+            <div class="font-semibold">${escapeHtml(r.participantName || '')}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">State ID</div>
+            <div class="font-semibold">${escapeHtml(r.stateId || '')}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">Assigned CN</div>
+            <div class="font-semibold">${escapeHtml(r.assignedCN || '')}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">Worksite / Provider</div>
+            <div class="font-semibold">${escapeHtml(r.worksite || '')}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">Start Date</div>
+            <div class="font-semibold">${formatDate(r.startDate) || '-'}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">End Date</div>
+            <div class="font-semibold">${formatDate(r.endDate) || '-'}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">Last Case Note Date</div>
+            <div class="font-semibold">${formatDate(r.caseNoteDate) || '-'}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">Last Site Visit Date</div>
+            <div class="font-semibold">${formatDate(r.siteVisitDate) || '-'}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">Last Update Log Date</div>
+            <div class="font-semibold">${formatDate(r.lastUpdateDate) || '-'}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">Approved Hours</div>
+            <div class="font-semibold">${r.approvedHours || 0}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">Hours Completed</div>
+            <div class="font-semibold">${r.hoursCompleted || 0}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">Hours Remaining</div>
+            <div class="font-semibold">${r.hoursRemaining || 0}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">CN Contacted Participant?</div>
+            <div class="font-semibold">${escapeHtml(r.cnContacted || '-')}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">Ended Successfully?</div>
+            <div class="font-semibold">${escapeHtml(r.endedSuccessfully || '-')}</div>
+          </div>
+
+          <div>
+            <div class="text-xs text-slate-500">Success Rating</div>
+            <div class="font-semibold">${escapeHtml(r.successRating || '-')}</div>
+          </div>
+        </div>
+
+        ${r.notes ? `
+          <div class="mt-4 text-sm">
+            <div class="text-xs text-slate-500">Notes</div>
+            <div class="border rounded-lg bg-white p-3">${escapeHtml(r.notes)}</div>
+          </div>
+        ` : ''}
+
+        <div class="flex flex-wrap gap-2 mt-4 no-print">
+          <button onclick="editRecord('${escapeAttr(r.id)}')" class="text-sm bg-blue-700 text-white rounded-lg px-3 py-1">
+            Edit
+          </button>
+
+          <button onclick="addUpdateForParticipant('${escapeAttr(r.participantName)}')" class="text-sm bg-emerald-700 text-white rounded-lg px-3 py-1">
+            Add Update
+          </button>
+
+          <button onclick="viewLogForParticipant('${escapeAttr(r.participantName)}')" class="text-sm bg-purple-700 text-white rounded-lg px-3 py-1">
+            View Log
+          </button>
+
+          <button onclick="deleteRecord('${escapeAttr(r.id)}')" class="text-sm border border-red-300 text-red-700 rounded-lg px-3 py-1">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+`).join('') || `
+  <div class="p-4 text-slate-500">
+    No WEX records match the selected filters.
+  </div>
+`;
 
   renderSummary(rows);
   updateSortIndicators();
